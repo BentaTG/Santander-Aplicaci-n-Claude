@@ -353,6 +353,15 @@ a{color:inherit;}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238B8578' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 11px center; padding-right:28px;
 }
+.tx-checkbox{width:16px; height:16px; accent-color:var(--accent); cursor:pointer;}
+.selection-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  background:var(--ink); color:#fff; padding:12px 18px; border-radius:var(--radius-s);
+  margin-bottom:12px; font-size:13px;
+  position:sticky; top:0; z-index:5;
+}
+.selection-bar .selection-total{font-weight:700; font-size:14.5px;}
+.selection-bar .selection-total .num{font-family:var(--font-display);}
 
 .tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-m); background:var(--surface);}
 table{width:100%; border-collapse:collapse; font-size:13px; min-width:720px; table-layout:auto;}
@@ -689,10 +698,17 @@ tbody tr:hover{background:var(--surface-alt);}
             <option value="Otros">Otros (préstamo)</option>
             <option value="Compartido">Compartido</option>
           </select>
+          <button class="btn btn-sm" id="btnSelectPending" style="margin-left:auto;">Seleccionar pendientes</button>
+          <button class="btn btn-sm btn-ghost" id="btnClearSelection" style="display:none;">Limpiar selección</button>
+        </div>
+        <div class="selection-bar" id="selectionBar" style="display:none;">
+          <div><span id="selectionCount" class="num" style="font-weight:700;">0</span> seleccionados</div>
+          <div class="selection-total">Total: <span id="selectionTotal" class="num">$0</span></div>
         </div>
         <div class="tbl-wrap">
           <table>
             <thead><tr>
+              <th style="width:36px;"><input type="checkbox" id="selectAllCheckbox" class="tx-checkbox"></th>
               <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Responsable</th><th>Cuotas</th><th>Estado</th><th style="text-align:right;">Monto</th><th></th>
             </tr></thead>
             <tbody id="txTableBody"></tbody>
@@ -1406,10 +1422,16 @@ function populateCycleFilter(){
   sel.value = [...sel.options].some(o => o.value === current) ? current : 'ALL';
 }
 
+let selectedTxIds = new Set();
+
 function renderTransactionsTable(){
   const cycleF = $('filterCycle').value;
   const typeF = $('filterType').value;
   const respF = $('filterResponsible').value;
+
+  // limpiar selección de ids que ya no existen (eliminados)
+  const allIds = new Set(appData.transactions.map(t => t.id));
+  selectedTxIds.forEach(id => { if (!allIds.has(id)) selectedTxIds.delete(id); });
 
   let rows = [...appData.transactions];
   if (cycleF !== 'ALL') rows = rows.filter(tx => getCycleDates(new Date(tx.date)).cycleEnd.toISOString().slice(0,10) === cycleF);
@@ -1426,7 +1448,9 @@ function renderTransactionsTable(){
     const clickable = tx.type === 'EXPENSE';
     const statusBadge = `<span class="badge ${sb.cls}${clickable?' badge-click':''}" ${clickable?`onclick="cycleTxStatus('${tx.id}')" title="Click para cambiar estado"`:''}>${sb.label}</span>`;
     const respLabel = tx.type === 'PAYMENT' ? '—' : (tx.responsible === 'Otros' ? '👥 ' + escapeHTML(tx.friendName||'') : tx.responsible === 'Compartido' ? '🤝 ' + escapeHTML(tx.friendName||'') : '👤 Yo');
+    const checked = selectedTxIds.has(tx.id) ? 'checked' : '';
     return `<tr>
+      <td><input type="checkbox" class="tx-checkbox row-checkbox" data-id="${tx.id}" ${checked}></td>
       <td>${fmtDate(tx.date)}</td>
       <td>${escapeHTML(tx.description)}</td>
       <td>${CATEGORY_ICONS[tx.category]||'📦'} ${escapeHTML(tx.category||'')}</td>
@@ -1442,10 +1466,62 @@ function renderTransactionsTable(){
       </td>
     </tr>`;
   }).join('');
+
+  body.querySelectorAll('.row-checkbox').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.checked) selectedTxIds.add(cb.dataset.id); else selectedTxIds.delete(cb.dataset.id);
+      updateSelectionBar();
+    });
+  });
+
+  const visibleIds = rows.map(tx => tx.id);
+  const selectAllCb = $('selectAllCheckbox');
+  selectAllCb.checked = visibleIds.length > 0 && visibleIds.every(id => selectedTxIds.has(id));
+  selectAllCb.onchange = () => {
+    if (selectAllCb.checked) visibleIds.forEach(id => selectedTxIds.add(id));
+    else visibleIds.forEach(id => selectedTxIds.delete(id));
+    renderTransactionsTable();
+  };
+
+  updateSelectionBar();
 }
+
+function updateSelectionBar(){
+  const selected = appData.transactions.filter(tx => selectedTxIds.has(tx.id));
+  const bar = $('selectionBar');
+  const clearBtn = $('btnClearSelection');
+  if (selected.length === 0){
+    bar.style.display = 'none';
+    clearBtn.style.display = 'none';
+    return;
+  }
+  const total = selected.reduce((sum, tx) => sum + (tx.type === 'PAYMENT' ? -tx.amount : tx.amount), 0);
+  bar.style.display = 'flex';
+  clearBtn.style.display = 'inline-flex';
+  $('selectionCount').textContent = selected.length;
+  $('selectionTotal').textContent = formatMoney(total);
+}
+
+$('btnSelectPending').addEventListener('click', () => {
+  const cycleF = $('filterCycle').value;
+  const typeF = $('filterType').value;
+  const respF = $('filterResponsible').value;
+  let rows = appData.transactions.filter(tx => tx.type === 'EXPENSE' && (tx.status === 'PENDING' || tx.status === 'PARTIAL'));
+  if (cycleF !== 'ALL') rows = rows.filter(tx => getCycleDates(new Date(tx.date)).cycleEnd.toISOString().slice(0,10) === cycleF);
+  if (typeF !== 'ALL') rows = rows.filter(tx => tx.type === typeF);
+  if (respF !== 'ALL') rows = rows.filter(tx => (tx.responsible || 'Yo') === respF);
+  rows.forEach(tx => selectedTxIds.add(tx.id));
+  renderTransactionsTable();
+});
+
+$('btnClearSelection').addEventListener('click', () => {
+  selectedTxIds.clear();
+  renderTransactionsTable();
+});
 
 function deleteTx(id){
   if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
+  selectedTxIds.delete(id);
   appData.transactions = appData.transactions.filter(t => t.id !== id);
   saveData();
   showToast('Movimiento eliminado', 'info');
