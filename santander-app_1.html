@@ -1,0 +1,2078 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#D2001C">
+<title>Cuenta Santander — Control de Tarjeta</title>
+<meta name="description" content="Control personal de tarjeta Santander WorldMember: cuotas, préstamos a terceros y proyección de gastos.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+/* ==========================================================================
+   TOKENS
+   ========================================================================== */
+:root{
+  --bg:#F5F4F0;
+  --surface:#FFFFFF;
+  --surface-alt:#F0EEE8;
+  --border:#E3E0D7;
+  --border-strong:#D3CFC3;
+  --ink:#221F1B;
+  --ink-soft:#5B564D;
+  --muted:#8B8578;
+  --accent:#C8102E;
+  --accent-ink:#8C0B20;
+  --accent-soft:#FCE8E9;
+  --navy:#1D3A45;
+  --navy-soft:#E3EBEC;
+  --green:#1F7A54;
+  --green-soft:#E3F3EA;
+  --amber:#A6741A;
+  --amber-soft:#F8EFDB;
+  --radius-s:8px;
+  --radius-m:12px;
+  --radius-l:18px;
+  --shadow-card:0 1px 2px rgba(34,31,27,0.04), 0 1px 0 rgba(34,31,27,0.03);
+  --shadow-pop:0 12px 32px rgba(34,31,27,0.16);
+  --font-display:'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-body:'Inter', system-ui, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:14.5px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important; transition-duration:0.001ms !important;}
+}
+h1,h2,h3,h4{font-family:var(--font-display); margin:0; letter-spacing:-0.01em; color:var(--ink);}
+p{margin:0;}
+button{font-family:var(--font-body); cursor:pointer;}
+input,select,textarea{font-family:var(--font-body);}
+.num{font-family:var(--font-display); font-variant-numeric:tabular-nums; letter-spacing:-0.01em;}
+::selection{background:var(--accent-soft); color:var(--accent-ink);}
+
+a{color:inherit;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:9px; height:9px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border-strong); border-radius:10px;}
+
+/* ==========================================================================
+   APP SHELL
+   ========================================================================== */
+.app-shell{
+  display:grid;
+  grid-template-columns:76px 1fr;
+  min-height:100vh;
+}
+.rail{
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:18px 0 14px;
+  gap:6px;
+  position:sticky;
+  top:0;
+  height:100vh;
+}
+.rail-mark{
+  width:38px; height:38px;
+  border-radius:10px;
+  background:var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-family:var(--font-display); font-weight:700; font-size:16px;
+  margin-bottom:22px;
+  flex-shrink:0;
+}
+.rail-nav{display:flex; flex-direction:column; gap:4px; flex:1; width:100%; align-items:center;}
+.rail-btn{
+  width:52px; height:52px;
+  border:none; background:transparent;
+  border-radius:var(--radius-s);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px;
+  color:var(--muted);
+  transition:background .15s ease, color .15s ease;
+}
+.rail-btn svg{width:19px; height:19px;}
+.rail-btn span{font-size:9.5px; font-weight:600; letter-spacing:0.01em;}
+.rail-btn:hover{background:var(--surface-alt); color:var(--ink);}
+.rail-btn.active{background:var(--accent-soft); color:var(--accent-ink);}
+.rail-bottom{display:flex; flex-direction:column; gap:4px; align-items:center;}
+
+.main{
+  min-width:0;
+  padding-bottom:60px;
+}
+
+/* Topbar */
+.topbar{
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  padding:16px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  flex-wrap:wrap;
+}
+.topbar-title{display:flex; flex-direction:column; gap:2px;}
+.topbar-title h1{font-size:19px; font-weight:600;}
+.topbar-title span{font-size:12.5px; color:var(--muted);}
+.topbar-actions{display:flex; gap:8px; flex-wrap:wrap;}
+
+.btn{
+  border:1px solid var(--border-strong);
+  background:var(--surface);
+  color:var(--ink);
+  padding:9px 15px;
+  border-radius:var(--radius-s);
+  font-size:13px;
+  font-weight:600;
+  display:inline-flex; align-items:center; gap:7px;
+  transition:border-color .15s ease, background .15s ease, transform .1s ease;
+  white-space:nowrap;
+}
+.btn svg{width:15px; height:15px;}
+.btn:hover{border-color:var(--ink-soft); background:var(--surface-alt);}
+.btn:active{transform:scale(0.98);}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+.btn-primary:hover{background:var(--accent-ink); border-color:var(--accent-ink);}
+.btn-ghost{border-color:transparent; background:transparent;}
+.btn-ghost:hover{background:var(--surface-alt);}
+.btn-sm{padding:6px 11px; font-size:12px;}
+.btn-danger-outline{border-color:var(--border-strong); color:var(--accent-ink);}
+.btn-danger-outline:hover{background:var(--accent-soft); border-color:var(--accent);}
+.btn-block{width:100%; justify-content:center;}
+.icon-btn{
+  width:34px; height:34px; border-radius:var(--radius-s);
+  border:1px solid var(--border-strong); background:var(--surface);
+  display:inline-flex; align-items:center; justify-content:center; color:var(--ink-soft);
+}
+.icon-btn:hover{background:var(--surface-alt); color:var(--ink);}
+.icon-btn svg{width:15px; height:15px;}
+
+/* Cycle ruler — signature element */
+.ruler-wrap{padding:14px 28px 16px; background:var(--surface); border-bottom:1px solid var(--border);}
+.ruler{
+  position:relative;
+  height:46px;
+  display:flex;
+  align-items:flex-start;
+  padding-top:6px;
+}
+.ruler-track{
+  position:relative;
+  flex:1;
+  height:3px;
+  background:var(--border-strong);
+  border-radius:2px;
+}
+.ruler-fill{
+  position:absolute; left:0; top:0; height:100%;
+  background:var(--accent);
+  border-radius:2px;
+}
+.ruler-tick{
+  position:absolute; top:50%;
+}
+.ruler-dot{
+  position:absolute; left:0; top:0; transform:translate(-50%,-50%);
+  width:9px; height:9px; border-radius:50%; background:var(--surface); border:2px solid var(--ink-soft);
+}
+.ruler-tick.today .ruler-dot{background:var(--accent); border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft);}
+.ruler-tick.end .ruler-dot{border-color:var(--navy);}
+.ruler-label{
+  font-size:10.5px; color:var(--muted); font-weight:600; white-space:nowrap;
+  position:absolute; top:14px; left:50%; transform:translateX(-50%);
+}
+.ruler-label.strong{color:var(--ink); font-weight:700;}
+.ruler-tick.align-left .ruler-label{left:0; transform:none; text-align:left;}
+.ruler-tick.align-right .ruler-label{left:auto; right:0; transform:none; text-align:right;}
+.ruler-tick.end .ruler-label{left:auto; right:0; transform:none; text-align:right; top:30px;}
+.ruler-side{font-size:11.5px; color:var(--ink-soft); font-weight:600; white-space:nowrap; padding:0 14px; flex-shrink:0;}
+
+.view-container{padding:22px 28px 10px;}
+.view{display:none;}
+.view.active{display:block; animation:fadein .18s ease;}
+@keyframes fadein{from{opacity:0; transform:translateY(3px);} to{opacity:1; transform:none;}}
+
+.section-head{display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+.section-head h2{font-size:16px; font-weight:600;}
+.section-head p{font-size:12.5px; color:var(--muted); margin-top:2px;}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-m);
+  box-shadow:var(--shadow-card);
+}
+.card-pad{padding:20px;}
+
+/* ==========================================================================
+   DASHBOARD
+   ========================================================================== */
+.dash-grid{
+  display:grid;
+  grid-template-columns:340px 1fr;
+  gap:18px;
+  margin-bottom:18px;
+}
+@media (max-width:980px){.dash-grid{grid-template-columns:1fr;}}
+
+/* Card visual — matte, restrained (no neon glow) */
+.creditcard{
+  border-radius:var(--radius-l);
+  background:linear-gradient(150deg, #3B1550 0%, #24123A 42%, #150A24 78%, #0B0612 100%);
+  color:#fff;
+  padding:22px 22px 20px;
+  position:relative;
+  overflow:hidden;
+  min-height:210px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  box-shadow:0 8px 26px rgba(30,10,45,0.35), var(--shadow-card);
+}
+.creditcard::before{
+  content:"";
+  position:absolute; right:-50px; top:-70px;
+  width:240px; height:240px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(200,16,46,0.30), transparent 70%);
+}
+.creditcard::after{
+  content:"";
+  position:absolute; inset:0;
+  background:linear-gradient(115deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,0) 74%, rgba(255,255,255,0.05) 100%);
+  pointer-events:none;
+}
+.cc-top{display:flex; justify-content:space-between; align-items:flex-start; position:relative;}
+.cc-brand{font-family:var(--font-display); font-weight:700; font-size:16px; letter-spacing:0.01em;}
+.cc-brand small{display:block; font-family:var(--font-body); font-weight:500; font-size:10px; color:rgba(255,255,255,0.55); letter-spacing:0.08em; margin-top:2px;}
+.cc-tier{font-size:10px; font-weight:700; letter-spacing:0.1em; background:rgba(255,255,255,0.12); padding:4px 9px; border-radius:20px;}
+.cc-chip{width:36px; height:27px; border-radius:5px; background:linear-gradient(135deg,#e8d5a0,#c2a05c); margin:18px 0 12px; position:relative; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.15);}
+.cc-number{font-family:var(--font-display); font-size:16.5px; letter-spacing:0.14em; position:relative;}
+.cc-bottom{display:flex; justify-content:space-between; align-items:flex-end; position:relative;}
+.cc-holder{font-size:12px; letter-spacing:0.02em; font-weight:600;}
+.cc-holder small{display:block; font-size:9px; color:rgba(255,255,255,0.5); font-weight:500; letter-spacing:0.08em; margin-bottom:3px;}
+.cc-dates{text-align:right; font-size:10.5px; color:rgba(255,255,255,0.7);}
+.cc-dates b{color:#fff; font-family:var(--font-display);}
+
+.dash-side{display:flex; flex-direction:column; gap:14px;}
+
+.stat-row{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
+@media (max-width:680px){.stat-row{grid-template-columns:1fr 1fr;}}
+.stat{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m);
+  padding:15px 16px;
+}
+.stat-label{font-size:11.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;}
+.stat-value{font-size:20px; font-weight:700;}
+.stat-sub{font-size:11.5px; color:var(--muted); margin-top:4px;}
+
+.util-card{padding:16px 18px;}
+.util-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+.util-top .stat-label{margin-bottom:0;}
+.progress-track{height:8px; background:var(--surface-alt); border-radius:6px; overflow:hidden; border:1px solid var(--border);}
+.progress-fill{height:100%; background:var(--navy); border-radius:6px; transition:width .3s ease;}
+.progress-fill.warn{background:var(--amber);}
+.progress-fill.danger{background:var(--accent);}
+.util-foot{display:flex; justify-content:space-between; margin-top:8px; font-size:12px; color:var(--ink-soft);}
+
+.badge{
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:20px;
+}
+.badge-green{background:var(--green-soft); color:var(--green);}
+.badge-amber{background:var(--amber-soft); color:var(--amber);}
+.badge-outline{background:var(--surface-alt); color:var(--ink-soft);}
+.badge-navy{background:var(--navy-soft); color:var(--navy);}
+.badge-accent{background:var(--accent-soft); color:var(--accent-ink);}
+.badge-click{cursor:pointer; user-select:none; transition:transform .1s ease, filter .12s ease;}
+.badge-click:hover{filter:brightness(0.95);}
+.badge-click:active{transform:scale(0.94);}
+
+.recent-list{display:flex; flex-direction:column;}
+.recent-row{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:11px 0; border-bottom:1px solid var(--border);
+}
+.recent-row:last-child{border-bottom:none;}
+.recent-left{display:flex; align-items:center; gap:12px; min-width:0;}
+.cat-icon{
+  width:36px; height:36px; border-radius:10px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+  background:var(--surface-alt);
+}
+.recent-text{min-width:0;}
+.recent-text .t1{font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;}
+.recent-text .t2{font-size:11.5px; color:var(--muted); margin-top:1px;}
+.recent-right{display:flex; align-items:center; gap:10px; flex-shrink:0;}
+.recent-right .amt{font-weight:700; font-size:13.5px; white-space:nowrap;}
+
+.empty-state{
+  text-align:center; padding:38px 20px; color:var(--muted);
+}
+.empty-state svg{width:34px; height:34px; margin-bottom:10px; opacity:0.5;}
+.empty-state h4{font-size:14px; color:var(--ink-soft); margin-bottom:4px;}
+.empty-state p{font-size:12.5px; max-width:340px; margin:0 auto;}
+
+/* ==========================================================================
+   FILTERS / TABLE
+   ========================================================================== */
+.filter-bar{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:16px;}
+.filter-bar select{
+  border:1px solid var(--border-strong); background:var(--surface); color:var(--ink);
+  padding:8px 12px; border-radius:var(--radius-s); font-size:12.5px; font-weight:600;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238B8578' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 11px center; padding-right:28px;
+}
+
+.tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-m); background:var(--surface);}
+table{width:100%; border-collapse:collapse; font-size:13px; min-width:720px;}
+thead th{
+  text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;
+  color:var(--muted); font-weight:700; padding:12px 16px; border-bottom:1px solid var(--border);
+  background:var(--surface-alt);
+}
+tbody td{padding:12px 16px; border-bottom:1px solid var(--border); vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--surface-alt);}
+.row-actions{display:flex; gap:6px;}
+
+/* ==========================================================================
+   DEBTORS
+   ========================================================================== */
+.pill-row{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+.pill{
+  border:1px solid var(--border-strong); background:var(--surface); color:var(--ink-soft);
+  padding:7px 14px; border-radius:20px; font-size:12.5px; font-weight:600;
+}
+.pill.active{background:var(--ink); border-color:var(--ink); color:#fff;}
+
+.debtors-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(320px,1fr)); gap:14px;}
+.debtor-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m); padding:18px;}
+.debtor-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;}
+.avatar{
+  width:40px; height:40px; border-radius:50%; background:var(--navy); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-weight:700; font-size:15px; flex-shrink:0;
+}
+.debtor-name{font-weight:700; font-size:14.5px;}
+.debtor-total{font-size:12px; color:var(--muted);}
+.debtor-item{
+  border-top:1px solid var(--border); padding:11px 0;
+}
+.debtor-item:first-of-type{border-top:none; padding-top:0;}
+.di-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px;}
+.di-desc{font-size:13px; font-weight:600;}
+.di-meta{font-size:11px; color:var(--muted); margin-top:2px;}
+.di-amt{font-weight:700; font-size:13px; white-space:nowrap;}
+.di-progress{margin-top:8px;}
+.di-progress-bar{height:5px; background:var(--surface-alt); border-radius:6px; overflow:hidden; border:1px solid var(--border); margin-top:4px;}
+.di-progress-fill{height:100%; background:var(--green); border-radius:6px;}
+.di-actions{display:flex; gap:7px; margin-top:9px; flex-wrap:wrap;}
+
+/* ==========================================================================
+   INSTALLMENTS TIMELINE
+   ========================================================================== */
+.cycle-block{margin-bottom:16px;}
+.cycle-block-head{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 4px; border-bottom:2px solid var(--ink); margin-bottom:10px;
+}
+.cycle-block-head h3{font-size:14px;}
+.cycle-block-head .cb-total{font-weight:700; font-family:var(--font-display);}
+.inst-item{
+  display:flex; justify-content:space-between; align-items:center; gap:10px;
+  padding:10px 6px; border-bottom:1px solid var(--border);
+}
+.inst-item:last-child{border-bottom:none;}
+.inst-left{display:flex; align-items:center; gap:11px; min-width:0;}
+.inst-badge{
+  font-family:var(--font-display); font-size:11.5px; font-weight:700; color:var(--navy);
+  background:var(--navy-soft); border-radius:6px; padding:4px 8px; flex-shrink:0;
+}
+
+/* ==========================================================================
+   ANALYTICS
+   ========================================================================== */
+.charts-grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:14px;}
+@media (max-width:900px){.charts-grid{grid-template-columns:1fr;}}
+.chart-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-m); padding:18px;}
+.chart-card h3{font-size:13.5px; margin-bottom:2px;}
+.chart-card .ch-sub{font-size:11.5px; color:var(--muted); margin-bottom:12px;}
+.chart-box{position:relative; height:230px;}
+
+/* ==========================================================================
+   MODALS
+   ========================================================================== */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(20,18,16,0.42);
+  display:none; align-items:flex-start; justify-content:center;
+  padding:5vh 16px; z-index:100; overflow-y:auto;
+  backdrop-filter:blur(2px);
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  background:var(--surface); border-radius:var(--radius-l); width:100%; max-width:560px;
+  box-shadow:var(--shadow-pop); margin:auto 0;
+  animation:modalin .16s ease;
+}
+@keyframes modalin{from{opacity:0; transform:translateY(8px) scale(0.99);} to{opacity:1; transform:none;}}
+.modal-head{display:flex; justify-content:space-between; align-items:center; padding:18px 22px; border-bottom:1px solid var(--border);}
+.modal-head h3{font-size:16px;}
+.modal-body{padding:20px 22px; max-height:70vh; overflow-y:auto;}
+.modal-foot{padding:16px 22px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:9px;}
+
+.type-toggle{display:flex; gap:8px; margin-bottom:18px;}
+.type-toggle button{
+  flex:1; padding:10px; border-radius:var(--radius-s); border:1px solid var(--border-strong); background:var(--surface); font-weight:700; font-size:13px; color:var(--ink-soft);
+}
+.type-toggle button.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+.field{margin-bottom:14px;}
+.field label{display:block; font-size:12px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.02em;}
+.field input, .field select, .field textarea{
+  width:100%; border:1px solid var(--border-strong); border-radius:var(--radius-s); padding:10px 12px;
+  font-size:13.5px; background:var(--surface); color:var(--ink);
+}
+.field input:focus, .field select:focus, .field textarea:focus{outline:2px solid var(--navy); outline-offset:1px; border-color:var(--navy);}
+.field textarea{resize:vertical; min-height:60px;}
+.field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.field-hint{font-size:11.5px; color:var(--muted); margin-top:5px;}
+.preview-box{
+  background:var(--surface-alt); border:1px solid var(--border); border-radius:var(--radius-s);
+  padding:12px 14px; font-size:12.5px; display:flex; flex-direction:column; gap:5px; margin-bottom:14px;
+}
+.preview-box .pv-row{display:flex; justify-content:space-between;}
+.preview-box .pv-row b{font-family:var(--font-display);}
+
+.toast-stack{position:fixed; bottom:20px; right:20px; display:flex; flex-direction:column; gap:8px; z-index:200;}
+.toast{
+  background:var(--ink); color:#fff; padding:12px 16px; border-radius:var(--radius-s);
+  font-size:13px; font-weight:600; display:flex; align-items:center; gap:9px;
+  box-shadow:var(--shadow-pop); max-width:320px;
+  animation:toastin .18s ease;
+}
+.toast svg{width:16px; height:16px; flex-shrink:0;}
+.toast.success{background:var(--green);}
+.toast.error{background:var(--accent);}
+@keyframes toastin{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+
+/* Mobile bottom nav */
+.mobile-tabbar{display:none;}
+@media (max-width:760px){
+  .app-shell{grid-template-columns:1fr;}
+  .rail{display:none;}
+  .main{padding-bottom:78px;}
+  .view-container{padding:16px 14px 6px;}
+  .topbar{padding:14px 16px;}
+  .ruler-wrap{padding:12px 16px 2px;}
+  .dash-grid{grid-template-columns:1fr;}
+  .stat-row{grid-template-columns:1fr 1fr;}
+  .mobile-tabbar{
+    display:flex; position:fixed; bottom:0; left:0; right:0; height:64px;
+    background:var(--surface); border-top:1px solid var(--border); z-index:50;
+    justify-content:space-around; align-items:center; padding-bottom:env(safe-area-inset-bottom);
+  }
+  .mobile-tabbar button{
+    background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:3px;
+    color:var(--muted); font-size:9.5px; font-weight:600; flex:1; padding:6px 0;
+  }
+  .mobile-tabbar button svg{width:19px; height:19px;}
+  .mobile-tabbar button.active{color:var(--accent);}
+  .topbar-actions .btn span.hide-mobile{display:none;}
+  .ruler-side{display:none;}
+  .ruler-label{font-size:9.5px;}
+  .cc-bottom{flex-direction:column; align-items:flex-start; gap:6px;}
+  .cc-dates{text-align:left;}
+}
+@media (min-width:761px){.hide-desktop{display:none;}}
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- RAIL NAV (desktop) -->
+  <nav class="rail">
+    <div class="rail-mark">S</div>
+    <div class="rail-nav">
+      <button class="rail-btn active" data-view="dashboard" title="Dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>
+        <span>Inicio</span>
+      </button>
+      <button class="rail-btn" data-view="movimientos" title="Movimientos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span>Movim.</span>
+      </button>
+      <button class="rail-btn" data-view="prestamos" title="¿Quién me debe?">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M17 4.5c1.6.4 2.8 1.9 2.8 3.6 0 1.8-1.2 3.2-2.8 3.6M20 14.2c2 .5 3.5 2.1 3.5 4.3"/></svg>
+        <span>Deudas</span>
+      </button>
+      <button class="rail-btn" data-view="cuotas" title="Proyección de cuotas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+        <span>Cuotas</span>
+      </button>
+      <button class="rail-btn" data-view="analitica" title="Analítica">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        <span>Datos</span>
+      </button>
+    </div>
+    <div class="rail-bottom">
+      <button class="rail-btn" id="btnOpenSettings" title="Configuración">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.34 1.87l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.7 1.7 0 00-1.87-.34 1.7 1.7 0 00-1 1.55V21a2 2 0 01-4 0v-.09a1.7 1.7 0 00-1-1.55 1.7 1.7 0 00-1.87.34l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.7 1.7 0 00.34-1.87 1.7 1.7 0 00-1.55-1H3a2 2 0 010-4h.09a1.7 1.7 0 001.55-1 1.7 1.7 0 00-.34-1.87l-.06-.06a2 2 0 112.83-2.83l.06.06a1.7 1.7 0 001.87.34H9a1.7 1.7 0 001-1.55V3a2 2 0 014 0v.09a1.7 1.7 0 001 1.55 1.7 1.7 0 001.87-.34l.06-.06a2 2 0 112.83 2.83l-.06.06a1.7 1.7 0 00-.34 1.87V9a1.7 1.7 0 001.55 1H21a2 2 0 010 4h-.09a1.7 1.7 0 00-1.55 1z"/></svg>
+        <span>Ajustes</span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="topbar-title">
+        <h1 id="topbarCardName">Santander WorldMember</h1>
+        <span id="topbarSub">Control personal de tarjeta y préstamos</span>
+      </div>
+      <div class="topbar-actions">
+        <span id="syncIndicator" style="font-size:12px; font-weight:600; min-width:110px; text-align:right; align-self:center;"></span>
+        <button class="btn" id="btnExportMenu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
+          <span class="hide-mobile">Respaldo</span>
+        </button>
+        <button class="btn" id="btnRegisterPayment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6L9 17l-5-5"/></svg>
+          <span class="hide-mobile">Abono</span>
+        </button>
+        <button class="btn btn-primary" id="btnRegisterExpense">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Registrar compra</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CYCLE RULER -->
+    <div class="ruler-wrap">
+      <div class="ruler">
+        <div class="ruler-side" id="rulerStartLabel">Corte ant.</div>
+        <div class="ruler-track" id="rulerTrack">
+          <div class="ruler-fill" id="rulerFill"></div>
+          <div class="ruler-tick today" id="rulerToday" style="left:0%"><div class="ruler-dot"></div><div class="ruler-label strong" id="rulerTodayLabel">Hoy</div></div>
+          <div class="ruler-tick end" id="rulerEnd" style="left:100%"><div class="ruler-dot"></div><div class="ruler-label" id="rulerEndLabel">Corte</div></div>
+        </div>
+        <div class="ruler-side" id="rulerDueLabel">Pago 5 Sep</div>
+      </div>
+    </div>
+
+    <div class="view-container">
+
+      <!-- ================= DASHBOARD ================= -->
+      <section class="view active" id="view-dashboard">
+        <div class="dash-grid">
+          <div class="creditcard">
+            <div class="cc-top">
+              <div class="cc-brand">Santander<small id="ccCardName">WORLDMEMBER</small></div>
+              <div class="cc-tier">WORLD MEMBER</div>
+            </div>
+            <div>
+              <div class="cc-chip"></div>
+              <div class="cc-number">•••• •••• •••• <span id="ccLast4">4532</span></div>
+            </div>
+            <div class="cc-bottom">
+              <div class="cc-holder"><small>TITULAR</small><span id="ccHolder">BENJAMÍN TRALMA GUTIÉRREZ</span></div>
+              <div class="cc-dates">CORTE <b id="ccClosing">25</b> · PAGO <b id="ccDue">5</b></div>
+            </div>
+          </div>
+
+          <div class="dash-side">
+            <div class="stat-row">
+              <div class="stat">
+                <div class="stat-label">Disponible</div>
+                <div class="stat-value num" id="statAvailable">$0</div>
+                <div class="stat-sub">de <span id="statLimitInline">$0</span></div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Deuda acumulada</div>
+                <div class="stat-value num" id="statDebt">$0</div>
+                <div class="stat-sub" id="statDebtSub">En el banco</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Por cobrar</div>
+                <div class="stat-value num" id="statLoans">$0</div>
+                <div class="stat-sub">Otros te deben</div>
+              </div>
+            </div>
+
+            <div class="card util-card">
+              <div class="util-top">
+                <div class="stat-label">Uso del límite de crédito</div>
+                <span class="badge badge-navy" id="utilPercentBadge">0%</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="utilFill" style="width:0%"></div></div>
+              <div class="util-foot">
+                <span>Acumulado <b class="num" id="utilAccum">$0</b></span>
+                <span>Límite <b class="num" id="utilLimit">$0</b></span>
+              </div>
+            </div>
+
+            <div class="card util-card">
+              <div class="util-top">
+                <div class="stat-label">Estado del periodo actual</div>
+                <span class="badge" id="periodBadge">Pendiente</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="periodFill" style="width:0%"></div></div>
+              <div class="util-foot">
+                <span>Pagado <b class="num" id="periodPaid">$0</b></span>
+                <span>Por pagar <b class="num" id="periodRemaining">$0</b></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="section-head" style="margin-bottom:12px;">
+            <h2>Compras recientes</h2>
+            <button class="btn btn-ghost btn-sm" data-view-link="movimientos">Ver todas</button>
+          </div>
+          <div class="recent-list" id="recentList"></div>
+        </div>
+      </section>
+
+      <!-- ================= MOVIMIENTOS ================= -->
+      <section class="view" id="view-movimientos">
+        <div class="section-head">
+          <div><h2>Movimientos y abonos</h2><p>Historial completo de compras y pagos a la tarjeta.</p></div>
+          <button class="btn btn-primary btn-sm" id="btnRegisterExpense2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"/></svg>
+            Registrar
+          </button>
+        </div>
+        <div class="filter-bar">
+          <select id="filterCycle"></select>
+          <select id="filterType">
+            <option value="ALL">Todos los tipos</option>
+            <option value="EXPENSE">Solo compras</option>
+            <option value="PAYMENT">Solo abonos</option>
+          </select>
+          <select id="filterResponsible">
+            <option value="ALL">Todos los responsables</option>
+            <option value="Yo">Yo (personal)</option>
+            <option value="Otros">Otros (préstamo)</option>
+            <option value="Compartido">Compartido</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Responsable</th><th>Cuotas</th><th>Estado</th><th style="text-align:right;">Monto</th><th></th>
+            </tr></thead>
+            <tbody id="txTableBody"></tbody>
+          </table>
+        </div>
+        <div class="empty-state" id="txEmptyState" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 2v4"/></svg>
+          <h4>No hay movimientos que mostrar</h4>
+          <p>Registra una compra o abono, o importa tu respaldo desde el botón "Respaldo".</p>
+        </div>
+      </section>
+
+      <!-- ================= PRESTAMOS ================= -->
+      <section class="view" id="view-prestamos">
+        <div class="section-head">
+          <div><h2>¿Quién me debe?</h2><p>Administra lo que pagaste por otras personas, cuota por cuota.</p></div>
+          <div class="stat" style="min-width:180px;">
+            <div class="stat-label">Total por cobrar</div>
+            <div class="stat-value num" id="totalPendingLoans">$0</div>
+          </div>
+        </div>
+        <div class="pill-row">
+          <button class="pill active" data-loan-filter="ALL">Todos</button>
+          <button class="pill" data-loan-filter="Otros">Otros</button>
+          <button class="pill" data-loan-filter="Compartido">Compartido</button>
+        </div>
+        <div class="debtors-grid" id="debtorsGrid"></div>
+        <div class="empty-state" id="debtorsEmptyState" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/></svg>
+          <h4>Nadie te debe dinero actualmente</h4>
+          <p>Cuando registres una compra con responsable "Otros" o "Compartido" aparecerá aquí, con control cuota por cuota.</p>
+        </div>
+      </section>
+
+      <!-- ================= CUOTAS ================= -->
+      <section class="view" id="view-cuotas">
+        <div class="section-head">
+          <div><h2>Proyección de cuotas (MSI)</h2><p>Lo que se facturará en tus próximos cortes de cuenta.</p></div>
+        </div>
+        <div id="installmentsTimeline"></div>
+        <div class="empty-state" id="installmentsEmptyState" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18"/></svg>
+          <h4>No tienes compras a cuotas activas</h4>
+          <p>Cuando compres algo en 2, 3, 6, 12 o más cuotas verás aquí la línea de tiempo mes a mes.</p>
+        </div>
+      </section>
+
+      <!-- ================= ANALITICA ================= -->
+      <section class="view" id="view-analitica">
+        <div class="section-head">
+          <div><h2>Analítica</h2><p>Desglose de tus hábitos de consumo y de préstamos.</p></div>
+        </div>
+        <div class="charts-grid">
+          <div class="chart-card"><h3>Gasto por categoría</h3><p class="ch-sub">Ciclo en curso</p><div class="chart-box"><canvas id="chartCategory"></canvas></div></div>
+          <div class="chart-card"><h3>Personal vs. préstamos</h3><p class="ch-sub">Ciclo en curso, por responsable</p><div class="chart-box"><canvas id="chartResponsible"></canvas></div></div>
+          <div class="chart-card"><h3>Cuotas vs. contado</h3><p class="ch-sub">Todas las compras registradas</p><div class="chart-box"><canvas id="chartInstallments"></canvas></div></div>
+          <div class="chart-card"><h3>Top deudores</h3><p class="ch-sub">Mayor saldo pendiente</p><div class="chart-box"><canvas id="chartDebtors"></canvas></div></div>
+          <div class="chart-card" style="grid-column:1 / -1;"><h3>Tendencia de gasto facturado</h3><p class="ch-sub">Monto facturado en cada ciclo (no acumulado)</p><div class="chart-box"><canvas id="chartTrend"></canvas></div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Mobile bottom tabbar -->
+<div class="mobile-tabbar">
+  <button class="active" data-view="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="11" width="8" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg>Inicio</button>
+  <button data-view="movimientos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Movim.</button>
+  <button data-view="prestamos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/></svg>Deudas</button>
+  <button data-view="cuotas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18"/></svg>Cuotas</button>
+  <button data-view="analitica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>Datos</button>
+</div>
+
+<!-- ================= MODAL: TRANSACCION ================= -->
+<div class="modal-overlay" id="modalTx">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="txModalTitle">Registrar compra</h3>
+      <button class="icon-btn" data-close="modalTx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="type-toggle">
+        <button type="button" id="typeBtnExpense" class="active">Compra / Gasto</button>
+        <button type="button" id="typeBtnPayment">Abono a tarjeta</button>
+      </div>
+
+      <div class="field">
+        <label>Descripción</label>
+        <input type="text" id="txDescription" placeholder="Ej: Supermercado Jumbo Ñuñoa" required>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Monto total ($)</label>
+          <input type="number" id="txAmount" min="0" step="1" placeholder="0" required>
+        </div>
+        <div class="field">
+          <label>Fecha</label>
+          <input type="date" id="txDate" required>
+        </div>
+      </div>
+
+      <div id="paymentHint" class="preview-box" style="display:none;">
+        <div class="pv-row"><span>Por pagar este periodo</span><b class="num" id="hintRemaining">$0</b></div>
+      </div>
+
+      <div id="groupExpenseFields">
+        <div class="field-row">
+          <div class="field">
+            <label>Categoría</label>
+            <select id="txCategory">
+              <option value="Supermercado">🛒 Supermercado</option>
+              <option value="Comida y Restaurantes">🍔 Comida y restaurantes</option>
+              <option value="Transporte">🚗 Transporte y Uber</option>
+              <option value="Suscripciones">📱 Suscripciones</option>
+              <option value="Hogar">🏠 Hogar</option>
+              <option value="Cursos">📚 Cursos y capacitaciones</option>
+              <option value="Salud">💊 Salud y farmacia</option>
+              <option value="Cuidado personal">✨ Cuidado personal</option>
+              <option value="Regalos">🎁 Regalos</option>
+              <option value="Carrete">🍾 Alcohol y carrete</option>
+              <option value="Viajes">✈️ Viajes y pasajes</option>
+              <option value="Otros">📦 Otros</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Responsable</label>
+            <select id="txResponsible">
+              <option value="Yo">👤 Yo (personal)</option>
+              <option value="Otros">👥 Otros (me lo deben)</option>
+              <option value="Compartido">🤝 Compartido</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="groupFriend" style="display:none;">
+          <div class="field">
+            <label>¿Quién te debe / comparte este gasto?</label>
+            <input type="text" id="txFriendName" placeholder="Nombre de la persona" list="friendsList">
+            <datalist id="friendsList"></datalist>
+          </div>
+          <div class="field">
+            <label>Tipo de división</label>
+            <select id="txSplitType">
+              <option value="50_50">🤝 Mitad (50% tú / 50% la otra persona)</option>
+              <option value="100_FRIEND">👥 Todo (la otra persona te debe el 100%)</option>
+              <option value="CUSTOM">⚡ Monto personalizado</option>
+            </select>
+          </div>
+          <div class="field" id="groupCustomSplit" style="display:none;">
+            <label>Monto que te debe ($)</label>
+            <input type="number" id="txCustomAmount" min="0" step="1">
+          </div>
+          <div class="preview-box">
+            <div class="pv-row"><span>Le corresponde a esta persona</span><b class="num" id="previewFriendShare">$0</b></div>
+            <div class="pv-row"><span>Tu parte personal</span><b class="num" id="previewMyShare">$0</b></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Cuotas (MSI)</label>
+          <select id="txInstallments">
+            <option value="1">1 cuota (al contado)</option>
+            <option value="2">2 cuotas</option>
+            <option value="3">3 cuotas</option>
+            <option value="6">6 cuotas</option>
+            <option value="10">10 cuotas</option>
+            <option value="12">12 cuotas</option>
+            <option value="18">18 cuotas</option>
+            <option value="24">24 cuotas</option>
+          </select>
+        </div>
+        <div class="preview-box" id="instPreview" style="display:none;">
+          <div class="pv-row"><span>Valor por cuota mensual</span><b class="num" id="previewMonthly">$0</b></div>
+          <div class="pv-row"><span>Cuota en curso ya pagada hasta</span>
+            <select id="txCurrentInst" style="width:90px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-strong);"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Estado de pago (a la tarjeta)</label>
+          <select id="txStatus">
+            <option value="PENDING">⏳ Pendiente</option>
+            <option value="PARTIAL">🌗 Abono parcial</option>
+            <option value="PAID">✅ Pagado / saldado</option>
+          </select>
+        </div>
+        <div class="field" id="groupPartial" style="display:none;">
+          <label>Monto abonado hasta ahora ($)</label>
+          <input type="number" id="txPartialAmount" min="0" step="1">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Nota (opcional)</label>
+        <textarea id="txNotes" placeholder="Comentario aclaratorio..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalTx">Cancelar</button>
+      <button class="btn btn-primary" id="btnSaveTx">Guardar operación</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: CONFIGURACION ================= -->
+<div class="modal-overlay" id="modalSettings">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Configurar tarjeta</h3>
+      <button class="icon-btn" data-close="modalSettings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label>Nombre de la tarjeta</label><input type="text" id="setCardName"></div>
+        <div class="field"><label>Últimos 4 dígitos</label><input type="text" id="setLast4" maxlength="4"></div>
+      </div>
+      <div class="field"><label>Titular de la cuenta</label><input type="text" id="setHolderName"></div>
+      <div class="field-row">
+        <div class="field"><label>Límite de crédito total ($)</label><input type="number" id="setCreditLimit" min="0" step="1"></div>
+        <div class="field"><label>Deuda arrastrada anterior ($)</label><input type="number" id="setInitialBalance" min="0" step="1"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Día de corte</label><select id="setClosingDay"></select></div>
+        <div class="field"><label>Día límite de pago</label><select id="setDueDay"></select></div>
+      </div>
+      <div class="field">
+        <label>Moneda</label>
+        <select id="setCurrency">
+          <option value="CLP">🇨🇱 CLP ($ Peso chileno)</option>
+          <option value="USD">🇺🇸 USD ($ Dólar)</option>
+          <option value="MXN">🇲🇽 MXN ($ Peso mexicano)</option>
+          <option value="EUR">🇪🇺 EUR (€ Euro)</option>
+          <option value="ARS">🇦🇷 ARS ($ Peso argentino)</option>
+        </select>
+      </div>
+      <p class="field-hint">Al cambiar el día de corte, todas tus compras se reclasifican de inmediato en sus ciclos correspondientes.</p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" data-close="modalSettings">Cancelar</button>
+      <button class="btn btn-primary" id="btnSaveSettings">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: RESPALDO ================= -->
+<div class="modal-overlay" id="modalBackup">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Respaldo de datos</h3>
+      <button class="icon-btn" data-close="modalBackup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <p class="field-hint" style="margin-bottom:16px;">Todos tus datos se guardan solo en este dispositivo (localStorage). Exporta seguido para no perder información. Esta app también puede leer directamente el respaldo JSON exportado desde tu app original de Santander.</p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-block" id="btnExportJSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
+          Descargar respaldo completo (JSON)
+        </button>
+        <button class="btn btn-block" id="btnExportCSV">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Descargar tabla Excel / Sheets (CSV)
+        </button>
+        <button class="btn btn-block" id="btnImportFile">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:15px;height:15px;"><path d="M12 21V9M7 14l5-5 5 5M4 3h16"/></svg>
+          Importar respaldo (JSON o CSV)
+        </button>
+        <input type="file" id="importFileInput" accept=".json,.csv" style="display:none;">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script>
+/* ==========================================================================
+   ESTADO Y CONSTANTES
+   ========================================================================== */
+const STORAGE_KEY = 'santander_clean_app_v1';
+
+/* ==========================================================================
+   SUPABASE SYNC
+   ========================================================================== */
+const SB_URL  = 'https://ybvzacohusmnarmiexue.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlidnphY29odXNtbmFybWlleHVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMTAyODcsImV4cCI6MjEwMjY4NjI4N30.ilrDbS9lnYo3f-U_ZxAqtVnsrVC5CqA6n5t7uG1QGTI';
+const SB_HEADERS = { 'Content-Type':'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+const SB_TABLE = `${SB_URL}/rest/v1/app_data`;
+
+// user_id único por navegador/dispositivo — siempre el mismo usuario
+function getUserId(){
+  let id = localStorage.getItem('santander_user_id');
+  if (!id){ id = 'user_' + Math.random().toString(36).slice(2,10); localStorage.setItem('santander_user_id', id); }
+  return id;
+}
+// Forzamos un único registro: todos los dispositivos comparten 'bentatg'
+const USER_ID = 'bentatg';
+
+let syncTimeout = null;
+let syncIndicator = null;
+
+function showSyncStatus(state){ // 'syncing' | 'ok' | 'error'
+  if (!syncIndicator) return;
+  const map = { syncing:['⟳ Sincronizando…','#A6741A'], ok:['✓ Sincronizado','#1F7A54'], error:['✗ Sin conexión','#C8102E'] };
+  const [text, color] = map[state] || map.ok;
+  syncIndicator.textContent = text;
+  syncIndicator.style.color = color;
+  if (state === 'ok') setTimeout(() => { if (syncIndicator) syncIndicator.textContent = ''; }, 2500);
+}
+
+async function pushToSupabase(){
+  showSyncStatus('syncing');
+  try{
+    const res = await fetch(`${SB_TABLE}?user_id=eq.${USER_ID}`, {
+      method:'PATCH',
+      headers:{ ...SB_HEADERS, 'Prefer':'return=minimal' },
+      body: JSON.stringify({ data: appData, updated_at: new Date().toISOString() })
+    });
+    if (res.status === 404 || res.status === 0 || (await res.text()) === '[]' || res.status === 200 && false){
+      // row no existe aún, hacer upsert
+    }
+    // Siempre intentamos upsert para cubrir primer uso
+    await fetch(SB_TABLE, {
+      method:'POST',
+      headers:{ ...SB_HEADERS, 'Prefer':'resolution=merge-duplicates' },
+      body: JSON.stringify({ user_id: USER_ID, data: appData, updated_at: new Date().toISOString() })
+    });
+    showSyncStatus('ok');
+  } catch(e){ showSyncStatus('error'); }
+}
+
+async function pullFromSupabase(){
+  showSyncStatus('syncing');
+  try{
+    const res = await fetch(`${SB_TABLE}?user_id=eq.${USER_ID}&select=data,updated_at`, { headers: SB_HEADERS });
+    const rows = await res.json();
+    if (rows && rows.length > 0 && rows[0].data){
+      const remote = rows[0].data;
+      appData = { ...DEFAULTS, ...remote, settings:{ ...DEFAULTS.settings, ...(remote.settings||{}) } };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    }
+    showSyncStatus('ok');
+  } catch(e){ showSyncStatus('error'); }
+}
+
+function schedulePush(){
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(pushToSupabase, 800);
+}
+const DEFAULTS = {
+  settings:{
+    cardName:'SANTANDER WORLDMEMBER', last4:'4532', holderName:'BENJAMÍN TRALMA GUTIÉRREZ',
+    creditLimit:1000000, initialBalance:0, closingDay:25, dueDay:5, currency:'CLP'
+  },
+  transactions:[]
+};
+let appData = JSON.parse(JSON.stringify(DEFAULTS));
+let chartInstances = {};
+let activeLoanFilter = 'ALL';
+let currentView = 'dashboard';
+
+const CATEGORY_ICONS = {
+  'Supermercado':'🛒','Comida y Restaurantes':'🍔','Transporte':'🚗','Suscripciones':'📱','Hogar':'🏠',
+  'Cursos':'📚','Salud':'💊','Cuidado personal':'✨','Regalos':'🎁','Carrete':'🍾','Viajes':'✈️',
+  'Otros':'📦','Abono / Pago':'✅'
+};
+
+/* ==========================================================================
+   UTILIDADES
+   ========================================================================== */
+function $(id){ return document.getElementById(id); }
+function getTodayLocalString(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function escapeHTML(str){
+  if (typeof str !== 'string') return '';
+  return str.replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t]));
+}
+function getCurrencySymbol(code){
+  return {CLP:'$', USD:'$', MXN:'$', EUR:'€', ARS:'$'}[code] || '$';
+}
+function formatMoney(amount){
+  const sym = getCurrencySymbol(appData.settings.currency);
+  const val = Math.round(Number(amount) || 0);
+  return `${sym} ${val.toLocaleString('es-CL')}`;
+}
+function fmtDate(dateStr, opts){
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('es-ES', opts || {day:'2-digit', month:'short'});
+}
+
+/* ==========================================================================
+   PERSISTENCIA
+   ========================================================================== */
+function loadData(){
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved){
+    try{
+      const parsed = JSON.parse(saved);
+      appData = { ...DEFAULTS, ...parsed, settings:{ ...DEFAULTS.settings, ...(parsed.settings||{}) } };
+    }catch(e){ console.error('Error cargando datos', e); }
+  }
+}
+function saveData(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  schedulePush();
+  renderAll();
+}
+
+/* ==========================================================================
+   CICLOS DE FACTURACION
+   ========================================================================== */
+function getCycleDates(referenceDate = new Date()){
+  const closingDay = appData.settings.closingDay;
+  const dueDay = appData.settings.dueDay;
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+  const day = referenceDate.getDate();
+
+  let cycleStart, cycleEnd;
+  if (day > closingDay){
+    cycleStart = new Date(year, month, closingDay + 1, 0,0,0);
+    cycleEnd = new Date(year, month + 1, closingDay, 23,59,59);
+  } else {
+    cycleStart = new Date(year, month - 1, closingDay + 1, 0,0,0);
+    cycleEnd = new Date(year, month, closingDay, 23,59,59);
+  }
+  let dueDate;
+  if (dueDay <= closingDay){
+    dueDate = new Date(cycleEnd.getFullYear(), cycleEnd.getMonth() + 1, dueDay, 23,59,59);
+  } else {
+    dueDate = new Date(cycleEnd.getFullYear(), cycleEnd.getMonth(), dueDay, 23,59,59);
+  }
+  return { cycleStart, cycleEnd, dueDate };
+}
+function getCycleKey(date){
+  const { cycleEnd } = getCycleDates(new Date(date));
+  return cycleEnd.toISOString().slice(0,10);
+}
+function getCycleLabel(cycleEnd){
+  const { cycleStart } = getCycleDates(new Date(cycleEnd.getTime() - 15*86400000));
+  return `${cycleStart.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})} – ${cycleEnd.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`;
+}
+
+/* ==========================================================================
+   LOGICA FINANCIERA CENTRAL
+   ========================================================================== */
+function getFriendShare(tx){
+  if (tx.customFriendAmount !== undefined && tx.customFriendAmount !== null && tx.customFriendAmount !== ''){
+    const v = parseFloat(tx.customFriendAmount);
+    if (!isNaN(v)) return v;
+  }
+  return (tx.responsible === 'Compartido') ? tx.amount / 2 : tx.amount;
+}
+
+function calculateCycleSummary(refDate = new Date()){
+  const { cycleStart, cycleEnd } = getCycleDates(refDate);
+  const initialBal = parseFloat(appData.settings.initialBalance || 0);
+
+  let totalExpense = 0, totalPaid = 0, totalDebtAccumulated = initialBal;
+  let activeExpensesCount = 0, totalPrestamos = 0;
+  const categoryTotals = {};
+
+  appData.transactions.forEach(tx => {
+    const txDate = new Date(tx.date + 'T00:00:00');
+    const inCycle = txDate >= cycleStart && txDate <= cycleEnd;
+
+    if (tx.type === 'EXPENSE'){
+      let instAmount = tx.amount;
+      const isInst = (tx.installments || 1) > 1;
+      let isExpenseInCycle = inCycle;
+
+      if (isInst){
+        instAmount = tx.amount / tx.installments;
+        const { cycleEnd: txCycleEnd } = getCycleDates(txDate);
+        const monthDiff = (cycleEnd.getFullYear()-txCycleEnd.getFullYear())*12 + (cycleEnd.getMonth()-txCycleEnd.getMonth());
+        isExpenseInCycle = (monthDiff >= 0 && monthDiff < tx.installments);
+      }
+
+      if (tx.responsible === 'Otros' || tx.responsible === 'Compartido'){
+        if (isInst){
+          const pastPaidInst = Math.max(0, (tx.currentInstallment || 1) - 1);
+          totalDebtAccumulated += Math.max(0, tx.amount - instAmount * pastPaidInst);
+        } else {
+          totalDebtAccumulated += tx.amount;
+        }
+      } else if (tx.status !== 'PAID'){
+        if (isInst){
+          const pastPaidInst = Math.max(0, (tx.currentInstallment || 1) - 1);
+          const pastPaidAmount = instAmount * pastPaidInst;
+          const partial = (tx.status === 'PARTIAL' && tx.partialPaidAmount > 0) ? tx.partialPaidAmount : 0;
+          totalDebtAccumulated += Math.max(0, tx.amount - pastPaidAmount - partial);
+        } else if (tx.status === 'PARTIAL' && tx.partialPaidAmount > 0){
+          totalDebtAccumulated += (tx.amount - tx.partialPaidAmount);
+        } else {
+          totalDebtAccumulated += tx.amount;
+        }
+      }
+
+      if (isExpenseInCycle){
+        totalExpense += instAmount;
+        activeExpensesCount++;
+        categoryTotals[tx.category || 'Otros'] = (categoryTotals[tx.category || 'Otros'] || 0) + instAmount;
+        if (tx.status === 'PAID'){ totalPaid += instAmount; }
+        else if (tx.status === 'PARTIAL' && tx.partialPaidAmount > 0){ totalPaid += Math.min(instAmount, tx.partialPaidAmount); }
+      }
+
+      if ((tx.responsible === 'Otros' || tx.responsible === 'Compartido') && tx.status !== 'PAID'){
+        const share = getFriendShare(tx);
+        if (isInst){
+          const paidInst = tx.friendPaidInstallments || 0;
+          const instVal = share / tx.installments;
+          totalPrestamos += Math.max(0, share - instVal * paidInst);
+        } else {
+          totalPrestamos += tx.friendCollected ? 0 : share;
+        }
+      }
+    } else if (tx.type === 'PAYMENT'){
+      if (inCycle) totalPaid += tx.amount;
+      totalDebtAccumulated = Math.max(0, totalDebtAccumulated - tx.amount);
+    }
+  });
+
+  const totalPeriodDebt = initialBal + totalExpense;
+  const totalPeriodRemaining = Math.max(0, totalPeriodDebt - totalPaid);
+  const remaining = Math.max(0, totalExpense - totalPaid);
+
+  let topCategory = null, topAmt = 0;
+  for (const [c,a] of Object.entries(categoryTotals)){ if (a > topAmt){ topAmt = a; topCategory = c; } }
+
+  return { totalExpense, totalPaid, remaining, totalDebtAccumulated, activeExpensesCount, totalPrestamos,
+    initialBal, totalPeriodDebt, totalPeriodRemaining, categoryTotals, topCategory, topAmt };
+}
+
+function getDebtorsSummary(){
+  const map = {};
+  appData.transactions.forEach(tx => {
+    if (tx.type === 'EXPENSE' && (tx.responsible === 'Otros' || tx.responsible === 'Compartido')){
+      const name = (tx.friendName || 'Persona sin nombre').trim() || 'Persona sin nombre';
+      if (!map[name]) map[name] = { totalPending:0, totalPaid:0, items:[] };
+      const share = getFriendShare(tx);
+      const isInstallment = (tx.installments || 1) > 1;
+      let pendingShare = share, paidShare = 0;
+
+      if (isInstallment){
+        const paidInst = tx.friendPaidInstallments || 0;
+        const instVal = share / tx.installments;
+        paidShare = instVal * paidInst;
+        pendingShare = Math.max(0, share - paidShare);
+      } else if (tx.friendCollected){
+        pendingShare = 0; paidShare = share;
+      }
+
+      map[name].items.push({ ...tx, shareAmount:share, pendingAmount:pendingShare, paidShare, isInstallment });
+      map[name].totalPending += pendingShare;
+      map[name].totalPaid += paidShare;
+    }
+  });
+  return Object.keys(map).map(name => ({ name, totalPending:map[name].totalPending, totalPaid:map[name].totalPaid, items:map[name].items }))
+    .sort((a,b) => b.totalPending - a.totalPending);
+}
+
+/* ==========================================================================
+   NAVEGACION
+   ========================================================================== */
+function switchView(view){
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $('view-' + view)?.classList.add('active');
+  document.querySelectorAll('.rail-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.querySelectorAll('.mobile-tabbar button[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  if (view === 'analitica') renderCharts();
+  window.scrollTo({top:0, behavior:'instant'});
+}
+document.querySelectorAll('[data-view]').forEach(el => {
+  el.addEventListener('click', () => switchView(el.dataset.view));
+});
+document.querySelectorAll('[data-view-link]').forEach(el => {
+  el.addEventListener('click', () => switchView(el.dataset.viewLink));
+});
+
+/* ==========================================================================
+   MODALES
+   ========================================================================== */
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(el => el.addEventListener('click', () => closeModal(el.dataset.close)));
+document.querySelectorAll('.modal-overlay').forEach(ov => ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); }));
+
+/* ==========================================================================
+   TOASTS
+   ========================================================================== */
+function showToast(msg, type='info'){
+  const stack = $('toastStack');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  const iconPath = type === 'success' ? 'M20 6L9 17l-5-5' : (type === 'error' ? 'M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z' : 'M12 8h.01M11 12h1v4h1');
+  t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${iconPath}"/></svg><span>${escapeHTML(msg)}</span>`;
+  stack.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transform='translateY(6px)'; t.style.transition='all .25s ease'; setTimeout(()=>t.remove(), 250); }, 3200);
+}
+
+/* ==========================================================================
+   RENDER: RULER (signature)
+   ========================================================================== */
+function renderRuler(){
+  const now = new Date();
+  const { cycleStart, cycleEnd, dueDate } = getCycleDates(now);
+  const total = cycleEnd - cycleStart;
+  const elapsed = Math.min(total, Math.max(0, now - cycleStart));
+  const pct = total > 0 ? (elapsed/total*100) : 0;
+
+  $('rulerFill').style.width = pct + '%';
+  const todayTick = $('rulerToday');
+  todayTick.style.left = pct + '%';
+  todayTick.classList.remove('align-left','align-right');
+  if (pct < 12) todayTick.classList.add('align-left');
+  else if (pct > 88) todayTick.classList.add('align-right');
+  const daysToClose = Math.ceil((cycleEnd - now) / 86400000);
+  const daysToPay = Math.ceil((dueDate - now) / 86400000);
+  $('rulerTodayLabel').innerText = `Hoy (${Math.max(0,daysToClose)}d)`;
+  $('rulerEndLabel').innerText = `Corte ${cycleEnd.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`;
+  $('rulerStartLabel').innerText = `Ciclo desde ${cycleStart.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})}`;
+  $('rulerDueLabel').innerText = `Pago ${dueDate.toLocaleDateString('es-ES',{day:'2-digit',month:'short'})} · faltan ${Math.max(0,daysToPay)}d`;
+}
+
+/* ==========================================================================
+   RENDER: DASHBOARD
+   ========================================================================== */
+function statusBadgeInfo(tx){
+  if (tx.type === 'PAYMENT' || tx.status === 'PAID') return { cls:'badge-green', label:'Pagado' };
+  if (tx.status === 'PARTIAL') return { cls:'badge-amber', label:'Parcial' };
+  return { cls:'badge-accent', label:'Pendiente' };
+}
+
+function renderDashboard(){
+  const s = appData.settings;
+  $('topbarCardName').innerText = s.cardName || DEFAULTS.settings.cardName;
+  $('ccCardName').innerText = (s.cardName || DEFAULTS.settings.cardName).replace('SANTANDER','').trim() || 'WORLDMEMBER';
+  $('ccLast4').innerText = s.last4 || '4532';
+  $('ccHolder').innerText = s.holderName || DEFAULTS.settings.holderName;
+  $('ccClosing').innerText = s.closingDay;
+  $('ccDue').innerText = s.dueDay;
+
+  const sum = calculateCycleSummary(new Date());
+  const limit = parseFloat(s.creditLimit || 1000000);
+  const available = Math.max(0, limit - sum.totalDebtAccumulated);
+  const utilPct = Math.min(100, Math.round((sum.totalDebtAccumulated / limit) * 100) || 0);
+
+  $('statAvailable').innerText = formatMoney(available);
+  $('statLimitInline').innerText = formatMoney(limit);
+  $('statDebt').innerText = formatMoney(sum.totalDebtAccumulated);
+  $('statLoans').innerText = formatMoney(sum.totalPrestamos);
+
+  $('utilPercentBadge').innerText = utilPct + '%';
+  $('utilFill').style.width = utilPct + '%';
+  $('utilFill').className = 'progress-fill' + (utilPct >= 90 ? ' danger' : utilPct >= 65 ? ' warn' : '');
+  $('utilAccum').innerText = formatMoney(sum.totalDebtAccumulated);
+  $('utilLimit').innerText = formatMoney(limit);
+
+  const payPct = sum.totalPeriodDebt > 0 ? Math.min(100, Math.round((sum.totalPaid / sum.totalPeriodDebt) * 100)) : 100;
+  $('periodFill').style.width = payPct + '%';
+  $('periodPaid').innerText = formatMoney(sum.totalPaid);
+  $('periodRemaining').innerText = formatMoney(sum.totalPeriodRemaining);
+  const pBadge = $('periodBadge');
+  if (sum.totalPeriodRemaining <= 0){ pBadge.className='badge badge-green'; pBadge.innerText='Pagado'; }
+  else if (sum.totalPaid > 0){ pBadge.className='badge badge-amber'; pBadge.innerText=`Parcial (${payPct}%)`; }
+  else { pBadge.className='badge badge-accent'; pBadge.innerText='Pendiente'; }
+
+  const recent = [...appData.transactions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,6);
+  const list = $('recentList');
+  if (recent.length === 0){
+    list.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg><h4>Aún no hay movimientos</h4><p>Registra tu primera compra o abono con los botones de arriba.</p></div>`;
+  } else {
+    list.innerHTML = recent.map(tx => {
+      const icon = CATEGORY_ICONS[tx.category] || '📦';
+      const sb = statusBadgeInfo(tx);
+      return `<div class="recent-row">
+        <div class="recent-left">
+          <div class="cat-icon">${icon}</div>
+          <div class="recent-text">
+            <div class="t1">${escapeHTML(tx.description)}</div>
+            <div class="t2">${fmtDate(tx.date)}${tx.installments>1 ? ' · ' + tx.installments + ' cuotas' : ''}</div>
+          </div>
+        </div>
+        <div class="recent-right">
+          <div class="amt">${formatMoney(tx.amount)}</div>
+          <span class="badge ${sb.cls}">${sb.label}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+/* ==========================================================================
+   RENDER: TABLA DE MOVIMIENTOS
+   ========================================================================== */
+function populateCycleFilter(){
+  const sel = $('filterCycle');
+  const current = sel.value || 'ALL';
+  const cycles = new Map();
+  appData.transactions.forEach(tx => {
+    const { cycleEnd } = getCycleDates(new Date(tx.date));
+    const key = cycleEnd.toISOString().slice(0,10);
+    if (!cycles.has(key)) cycles.set(key, cycleEnd);
+  });
+  const sorted = [...cycles.entries()].sort((a,b) => new Date(b[0]) - new Date(a[0]));
+  sel.innerHTML = '<option value="ALL">Todos los ciclos</option>' +
+    sorted.map(([key, end]) => `<option value="${key}">${getCycleLabel(end)}</option>`).join('');
+  sel.value = [...sel.options].some(o => o.value === current) ? current : 'ALL';
+}
+
+function renderTransactionsTable(){
+  const cycleF = $('filterCycle').value;
+  const typeF = $('filterType').value;
+  const respF = $('filterResponsible').value;
+
+  let rows = [...appData.transactions];
+  if (cycleF !== 'ALL') rows = rows.filter(tx => getCycleDates(new Date(tx.date)).cycleEnd.toISOString().slice(0,10) === cycleF);
+  if (typeF !== 'ALL') rows = rows.filter(tx => tx.type === typeF);
+  if (respF !== 'ALL') rows = rows.filter(tx => (tx.responsible || 'Yo') === respF);
+  rows.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+  const body = $('txTableBody');
+  $('txEmptyState').style.display = rows.length ? 'none' : 'block';
+  $('txTableBody').closest('.tbl-wrap').style.display = rows.length ? 'block' : 'none';
+
+  body.innerHTML = rows.map(tx => {
+    const sb = statusBadgeInfo(tx);
+    const clickable = tx.type === 'EXPENSE';
+    const statusBadge = `<span class="badge ${sb.cls}${clickable?' badge-click':''}" ${clickable?`onclick="cycleTxStatus('${tx.id}')" title="Click para cambiar estado"`:''}>${sb.label}</span>`;
+    const respLabel = tx.type === 'PAYMENT' ? '—' : (tx.responsible === 'Otros' ? '👥 ' + escapeHTML(tx.friendName||'') : tx.responsible === 'Compartido' ? '🤝 ' + escapeHTML(tx.friendName||'') : '👤 Yo');
+    return `<tr>
+      <td>${fmtDate(tx.date)}</td>
+      <td>${escapeHTML(tx.description)}</td>
+      <td>${CATEGORY_ICONS[tx.category]||'📦'} ${escapeHTML(tx.category||'')}</td>
+      <td>${respLabel}</td>
+      <td>${tx.installments>1 ? (tx.currentInstallment||1)+'/'+tx.installments : '—'}</td>
+      <td>${statusBadge}</td>
+      <td style="text-align:right;" class="num">${tx.type==='PAYMENT' ? '+' : ''}${formatMoney(tx.amount)}</td>
+      <td>
+        <div class="row-actions">
+          <button class="icon-btn" title="Editar" onclick="openEditTx('${tx.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+          <button class="icon-btn" title="Eliminar" onclick="deleteTx('${tx.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function deleteTx(id){
+  if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
+  appData.transactions = appData.transactions.filter(t => t.id !== id);
+  saveData();
+  showToast('Movimiento eliminado', 'info');
+}
+
+function cycleTxStatus(id){
+  const tx = findTx(id); if (!tx || tx.type !== 'EXPENSE') return;
+  const order = ['PENDING','PARTIAL','PAID'];
+  const idx = order.indexOf(tx.status || 'PENDING');
+  const next = order[(idx + 1) % 3];
+  tx.status = next;
+  if (next === 'PARTIAL'){
+    if (!tx.partialPaidAmount) tx.partialPaidAmount = Math.round(tx.amount / 2);
+  } else if (next === 'PAID'){
+    tx.partialPaidAmount = tx.amount;
+  } else {
+    tx.partialPaidAmount = 0;
+  }
+  saveData();
+  const label = next === 'PENDING' ? 'Pendiente' : next === 'PARTIAL' ? 'Parcial' : 'Pagado';
+  showToast('Estado actualizado a ' + label, 'success');
+}
+
+/* ==========================================================================
+   RENDER: PRESTAMOS / DEUDORES
+   ========================================================================== */
+document.querySelectorAll('.pill[data-loan-filter]').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('.pill[data-loan-filter]').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    activeLoanFilter = p.dataset.loanFilter;
+    renderDebtorsView();
+  });
+});
+
+function renderDebtorsView(){
+  let debtors = getDebtorsSummary();
+  if (activeLoanFilter !== 'ALL'){
+    debtors = debtors.map(d => ({
+      name:d.name,
+      items:d.items.filter(it => it.responsible === activeLoanFilter),
+      totalPending:d.items.filter(it => it.responsible === activeLoanFilter).reduce((a,it)=>a+it.pendingAmount,0)
+    })).filter(d => d.items.length);
+  }
+  const total = debtors.reduce((a,d) => a+d.totalPending, 0);
+  $('totalPendingLoans').innerText = formatMoney(total);
+
+  const grid = $('debtorsGrid');
+  $('debtorsEmptyState').style.display = debtors.length ? 'none' : 'block';
+  grid.style.display = debtors.length ? 'grid' : 'none';
+
+  grid.innerHTML = debtors.map(d => {
+    const initial = d.name.charAt(0).toUpperCase();
+    const items = d.items.map(it => {
+      const isSaldado = it.pendingAmount <= 0;
+      let controls = '';
+      if (it.isInstallment){
+        const paidInst = it.friendPaidInstallments || 0;
+        const pct = Math.round((paidInst / it.installments) * 100);
+        controls = `<div class="di-progress">
+          <div class="di-top" style="margin-bottom:0;"><span class="di-meta">Cuota ${paidInst}/${it.installments} cobrada</span><span class="di-meta">${formatMoney(it.paidShare)} recibido</span></div>
+          <div class="di-progress-bar"><div class="di-progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="di-actions">
+          ${paidInst < it.installments ? `<button class="btn btn-sm btn-primary" onclick="collectInstallment('${it.id}')">Cobrar cuota ${paidInst+1}</button>` : ''}
+          ${paidInst > 0 ? `<button class="btn btn-sm" onclick="undoInstallment('${it.id}')">Deshacer</button>` : ''}
+        </div>`;
+      } else {
+        controls = `<div class="di-actions">
+          ${isSaldado ? `<button class="btn btn-sm" onclick="toggleFriendCollected('${it.id}', false)">Deshacer cobro</button>` : `<button class="btn btn-sm btn-primary" onclick="toggleFriendCollected('${it.id}', true)">Marcar cobrado</button>`}
+        </div>`;
+      }
+      return `<div class="debtor-item">
+        <div class="di-top">
+          <div><div class="di-desc">${escapeHTML(it.description)}</div><div class="di-meta">${fmtDate(it.date)} · ${it.splitType === 'CUSTOM' ? 'Monto personalizado' : it.responsible === 'Compartido' ? 'Compartido' : 'Préstamo'}</div></div>
+          <div class="di-amt">${isSaldado ? `<span class="badge badge-green">Saldado</span>` : formatMoney(it.pendingAmount)}</div>
+        </div>
+        ${controls}
+      </div>`;
+    }).join('');
+    return `<div class="debtor-card">
+      <div class="debtor-head">
+        <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+          <div class="avatar">${initial}</div>
+          <div><div class="debtor-name">${escapeHTML(d.name)}</div><div class="debtor-total">${formatMoney(d.totalPending)} pendiente</div></div>
+        </div>
+        <button class="icon-btn" data-share-debtor="${escapeHTML(d.name)}" title="Compartir resumen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+        </button>
+      </div>
+      ${items}
+    </div>`;
+  }).join('');
+
+  grid.querySelectorAll('[data-share-debtor]').forEach(btn => {
+    btn.addEventListener('click', () => shareDebtorSummary(btn.dataset.shareDebtor));
+  });
+}
+
+function buildDebtorSummaryText(debtor){
+  const pendingItems = debtor.items.filter(it => it.pendingAmount > 0.5);
+  const lines = [];
+  lines.push(`Resumen de deuda — ${debtor.name}`);
+  lines.push('───────────────────');
+  let dueNow = 0;
+  pendingItems.forEach(it => {
+    if (it.isInstallment){
+      const paidInst = it.friendPaidInstallments || 0;
+      const nextInst = paidInst + 1;
+      const instVal = it.shareAmount / it.installments;
+      dueNow += instVal;
+      lines.push(`- ${it.description}`);
+      lines.push(`   Cuota ${nextInst}/${it.installments} · ${formatMoney(instVal)}`);
+    } else {
+      dueNow += it.pendingAmount;
+      lines.push(`- ${it.description} · ${formatMoney(it.pendingAmount)}`);
+    }
+  });
+  lines.push('───────────────────');
+  lines.push(`Total a cobrar: ${formatMoney(dueNow)}`);
+  return lines.join('\n');
+}
+
+function shareDebtorSummary(name){
+  let debtors = getDebtorsSummary();
+  if (activeLoanFilter !== 'ALL'){
+    debtors = debtors.map(d => ({
+      name:d.name,
+      items:d.items.filter(it => it.responsible === activeLoanFilter),
+      totalPending:d.items.filter(it => it.responsible === activeLoanFilter).reduce((a,it)=>a+it.pendingAmount,0)
+    })).filter(d => d.items.length);
+  }
+  const debtor = debtors.find(d => d.name === name);
+  if (!debtor || debtor.totalPending <= 0.5){ showToast('Esta persona no tiene saldo pendiente', 'info'); return; }
+
+  const text = buildDebtorSummaryText(debtor);
+
+  if (navigator.share){
+    navigator.share({ text }).catch(() => {});
+  } else if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text)
+      .then(() => showToast('Resumen copiado. Pégalo donde quieras enviarlo', 'success'))
+      .catch(() => fallbackCopyText(text));
+  } else {
+    fallbackCopyText(text);
+  }
+}
+
+function fallbackCopyText(text){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); showToast('Resumen copiado', 'success'); }
+  catch(e){ showToast('No se pudo copiar automáticamente', 'error'); }
+  ta.remove();
+}
+
+function findTx(id){ return appData.transactions.find(t => t.id === id); }
+function collectInstallment(id){
+  const tx = findTx(id); if (!tx) return;
+  tx.friendPaidInstallments = Math.min(tx.installments, (tx.friendPaidInstallments||0) + 1);
+  saveData();
+  showToast('Cuota marcada como cobrada', 'success');
+}
+function undoInstallment(id){
+  const tx = findTx(id); if (!tx) return;
+  tx.friendPaidInstallments = Math.max(0, (tx.friendPaidInstallments||0) - 1);
+  saveData();
+  showToast('Cuota revertida', 'info');
+}
+function toggleFriendCollected(id, val){
+  const tx = findTx(id); if (!tx) return;
+  tx.friendCollected = val;
+  saveData();
+  showToast(val ? 'Préstamo marcado como cobrado' : 'Cobro revertido', val ? 'success' : 'info');
+}
+
+/* ==========================================================================
+   RENDER: PROYECCION DE CUOTAS
+   ========================================================================== */
+function renderInstallmentsView(){
+  const activeInst = appData.transactions.filter(tx => tx.type === 'EXPENSE' && (tx.installments||1) > 1);
+  const container = $('installmentsTimeline');
+  $('installmentsEmptyState').style.display = activeInst.length ? 'none' : 'block';
+  if (!activeInst.length){ container.innerHTML=''; return; }
+
+  const cycleMap = new Map();
+  activeInst.forEach(tx => {
+    const instAmount = tx.amount / tx.installments;
+    const { cycleEnd: purchaseCycleEnd } = getCycleDates(new Date(tx.date));
+    for (let n = 1; n <= tx.installments; n++){
+      const cd = new Date(purchaseCycleEnd);
+      cd.setMonth(cd.getMonth() + (n - 1));
+      const key = cd.toISOString().slice(0,10);
+      if (!cycleMap.has(key)) cycleMap.set(key, { end:cd, items:[], total:0 });
+      const bucket = cycleMap.get(key);
+      bucket.items.push({ tx, n });
+      bucket.total += instAmount;
+    }
+  });
+
+  const now = new Date();
+  const { cycleEnd: currentCycleEnd } = getCycleDates(now);
+  const sortedKeys = [...cycleMap.keys()].filter(k => new Date(k) >= new Date(currentCycleEnd.getTime() - 32*86400000)).sort();
+
+  container.innerHTML = sortedKeys.map(key => {
+    const bucket = cycleMap.get(key);
+    const label = getCycleLabel(bucket.end);
+    const isCurrent = bucket.end.toISOString().slice(0,10) === currentCycleEnd.toISOString().slice(0,10);
+    const items = bucket.items.map(({tx,n}) => `
+      <div class="inst-item">
+        <div class="inst-left">
+          <span class="inst-badge">${n}/${tx.installments}</span>
+          <div><div style="font-weight:600; font-size:13px;">${escapeHTML(tx.description)}</div><div class="di-meta">${tx.responsible !== 'Yo' ? (CATEGORY_ICONS[tx.category]||'') + ' Préstamo · ' + escapeHTML(tx.friendName||'') : (CATEGORY_ICONS[tx.category]||'') + ' ' + escapeHTML(tx.category||'')}</div></div>
+        </div>
+        <div class="num" style="font-weight:500; color:var(--ink-soft);">${formatMoney(tx.amount / tx.installments)}</div>
+      </div>`).join('');
+    return `<div class="cycle-block">
+      <div class="cycle-block-head">
+        <h3>${label} ${isCurrent ? '<span class="badge badge-navy" style="margin-left:8px;">Ciclo actual</span>' : ''}</h3>
+        <span class="cb-total num">${formatMoney(bucket.total)}</span>
+      </div>
+      ${items}
+    </div>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   RENDER: ANALITICA (CHARTS)
+   ========================================================================== */
+const CHART_PALETTE = ['#C8102E','#1D3A45','#1F7A54','#A6741A','#7A5FBF','#3F7CAC','#B0554C','#5C7A5A'];
+function destroyChart(id){ if (chartInstances[id]){ chartInstances[id].destroy(); delete chartInstances[id]; } }
+
+function renderCharts(){
+  const sum = calculateCycleSummary(new Date());
+
+  // 1. Categoria
+  const catEntries = Object.entries(sum.categoryTotals).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  destroyChart('chartCategory');
+  chartInstances.chartCategory = new Chart($('chartCategory'), {
+    type:'bar',
+    data:{ labels: catEntries.length ? catEntries.map(c=>c[0]) : ['Sin datos'], datasets:[{ data: catEntries.length ? catEntries.map(c=>c[1]) : [0], backgroundColor:'#C8102E', borderRadius:5, maxBarThickness:34 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, grid:{color:'#EDEAE3'}}, x:{grid:{display:false}, ticks:{font:{size:10.5}}} } }
+  });
+
+  // 2. Responsable (personal vs prestamos) — sobre ciclo actual, montos de instAmount
+  let personalAmt = 0, prestamoAmt = 0;
+  appData.transactions.forEach(tx => {
+    if (tx.type !== 'EXPENSE') return;
+    const isInst = (tx.installments||1) > 1;
+    let instAmount = tx.amount;
+    let inCycle = true;
+    if (isInst){
+      instAmount = tx.amount / tx.installments;
+      const { cycleEnd } = getCycleDates(new Date());
+      const { cycleEnd: txCycleEnd } = getCycleDates(new Date(tx.date));
+      const monthDiff = (cycleEnd.getFullYear()-txCycleEnd.getFullYear())*12 + (cycleEnd.getMonth()-txCycleEnd.getMonth());
+      inCycle = (monthDiff>=0 && monthDiff<tx.installments);
+    } else {
+      const { cycleStart, cycleEnd } = getCycleDates(new Date());
+      const d = new Date(tx.date+'T00:00:00');
+      inCycle = d>=cycleStart && d<=cycleEnd;
+    }
+    if (!inCycle) return;
+    if (tx.responsible === 'Yo' || !tx.responsible) personalAmt += instAmount; else prestamoAmt += instAmount;
+  });
+  destroyChart('chartResponsible');
+  chartInstances.chartResponsible = new Chart($('chartResponsible'), {
+    type:'doughnut',
+    data:{ labels:['Personal','Préstamos a terceros'], datasets:[{ data:[personalAmt||0, prestamoAmt||0], backgroundColor:['#1D3A45','#C8102E'], borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{legend:{position:'bottom', labels:{boxWidth:11, font:{size:11}}}} }
+  });
+
+  // 3. Cuotas vs contado (conteo de compras)
+  let cuotasCount = 0, contadoCount = 0;
+  appData.transactions.forEach(tx => { if (tx.type==='EXPENSE'){ if ((tx.installments||1)>1) cuotasCount++; else contadoCount++; } });
+  destroyChart('chartInstallments');
+  chartInstances.chartInstallments = new Chart($('chartInstallments'), {
+    type:'doughnut',
+    data:{ labels:['A cuotas','Al contado'], datasets:[{ data:[cuotasCount, contadoCount], backgroundColor:['#A6741A','#1F7A54'], borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{legend:{position:'bottom', labels:{boxWidth:11, font:{size:11}}}} }
+  });
+
+  // 4. Top deudores: saldo pendiente (barra principal) + ya pagado (barra delgada debajo)
+  const debtors = getDebtorsSummary().filter(d => d.totalPending > 0).slice(0,5);
+  destroyChart('chartDebtors');
+  chartInstances.chartDebtors = new Chart($('chartDebtors'), {
+    type:'bar',
+    data:{
+      labels: debtors.length ? debtors.map(d=>d.name) : ['Sin datos'],
+      datasets:[
+        { label:'Pendiente', data: debtors.length ? debtors.map(d=>d.totalPending) : [0], backgroundColor:'#1D3A45', borderRadius:4, maxBarThickness:26 },
+        { label:'Ya pagado', data: debtors.length ? debtors.map(d=>d.totalPaid) : [0], backgroundColor:'#1F7A54', borderRadius:4, maxBarThickness:10 }
+      ]
+    },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:debtors.length>0, position:'bottom', labels:{boxWidth:11, font:{size:11}}}},
+      scales:{ x:{beginAtZero:true, grid:{color:'#EDEAE3'}}, y:{grid:{display:false}, ticks:{font:{size:11}}} }
+    }
+  });
+
+  // 5. Tendencia últimos 6 ciclos: gasto facturado por ciclo
+  const cycleLabels = [];
+  const billedArr = [];
+  const pastCycles = [];
+  let refDate = new Date();
+  for (let i=0;i<6;i++){
+    const c = getCycleDates(refDate);
+    pastCycles.push(c);
+    refDate = new Date(c.cycleStart);
+    refDate.setDate(refDate.getDate() - 5);
+  }
+  pastCycles.reverse();
+  pastCycles.forEach(cycle => {
+    cycleLabels.push(cycle.cycleEnd.toLocaleDateString('es-ES',{month:'short', year:'2-digit'}));
+    let billed = 0;
+    appData.transactions.forEach(tx => {
+      if (tx.type !== 'EXPENSE') return;
+      const txDate = new Date(tx.date+'T00:00:00');
+      const isInst = (tx.installments||1) > 1;
+      let instAmount = tx.amount;
+      let inCycle = false;
+      if (isInst){
+        instAmount = tx.amount / tx.installments;
+        const { cycleEnd: txCycleEnd } = getCycleDates(txDate);
+        const monthDiff = (cycle.cycleEnd.getFullYear()-txCycleEnd.getFullYear())*12 + (cycle.cycleEnd.getMonth()-txCycleEnd.getMonth());
+        inCycle = (monthDiff>=0 && monthDiff<tx.installments);
+      } else {
+        inCycle = txDate>=cycle.cycleStart && txDate<=cycle.cycleEnd;
+      }
+      if (inCycle) billed += instAmount;
+    });
+    billedArr.push(billed);
+  });
+
+  destroyChart('chartTrend');
+  chartInstances.chartTrend = new Chart($('chartTrend'), {
+    type:'line',
+    data:{ labels:cycleLabels, datasets:[{ data:billedArr, borderColor:'#C8102E', backgroundColor:'rgba(200,16,46,0.08)', fill:true, tension:.3, pointRadius:4, pointBackgroundColor:'#C8102E' }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, grid:{color:'#EDEAE3'}}, x:{grid:{display:false}} } }
+  });
+}
+
+/* ==========================================================================
+   MODAL: REGISTRAR / EDITAR TRANSACCION
+   ========================================================================== */
+let txModalType = 'EXPENSE';
+function resetTxForm(){
+  $('txDescription').value=''; $('txAmount').value=''; $('txDate').value=getTodayLocalString();
+  $('txNotes').value=''; $('txCategory').value='Supermercado'; $('txResponsible').value='Yo';
+  $('txFriendName').value=''; $('txSplitType').value='50_50'; $('txCustomAmount').value='';
+  $('txInstallments').value='1'; $('txStatus').value='PENDING'; $('txPartialAmount').value='';
+  $('groupFriend').style.display='none'; $('groupCustomSplit').style.display='none';
+  $('instPreview').style.display='none'; $('groupPartial').style.display='none';
+  delete $('btnSaveTx').dataset.editId;
+  setTxType('EXPENSE');
+  updateFriendsDatalist();
+}
+function setTxType(type){
+  txModalType = type;
+  $('typeBtnExpense').classList.toggle('active', type==='EXPENSE');
+  $('typeBtnPayment').classList.toggle('active', type==='PAYMENT');
+  $('txModalTitle').innerText = type==='EXPENSE' ? 'Registrar compra' : 'Registrar abono';
+  $('groupExpenseFields').style.display = type==='EXPENSE' ? 'block' : 'none';
+  $('paymentHint').style.display = type==='PAYMENT' ? 'flex' : 'none';
+  if (type==='PAYMENT'){
+    const sum = calculateCycleSummary(new Date());
+    $('hintRemaining').innerText = formatMoney(sum.totalPeriodRemaining);
+  }
+}
+$('typeBtnExpense').addEventListener('click', () => setTxType('EXPENSE'));
+$('typeBtnPayment').addEventListener('click', () => setTxType('PAYMENT'));
+
+function updateFriendsDatalist(){
+  const names = new Set();
+  appData.transactions.forEach(tx => { if (tx.friendName) names.add(tx.friendName.trim()); });
+  $('friendsList').innerHTML = [...names].map(n => `<option value="${escapeHTML(n)}">`).join('');
+}
+
+function updateSplitPreview(){
+  const resp = $('txResponsible').value;
+  const show = resp === 'Otros' || resp === 'Compartido';
+  $('groupFriend').style.display = show ? 'block' : 'none';
+  if (!show) return;
+  const splitVal = $('txSplitType').value;
+  const total = parseFloat($('txAmount').value || 0);
+  $('groupCustomSplit').style.display = splitVal === 'CUSTOM' ? 'block' : 'none';
+  let friendShare = 0;
+  if (splitVal === '50_50') friendShare = total/2;
+  else if (splitVal === '100_FRIEND') friendShare = total;
+  else { let c = parseFloat($('txCustomAmount').value||0); if (c>total) c=total; friendShare = c; }
+  $('previewFriendShare').innerText = formatMoney(friendShare);
+  $('previewMyShare').innerText = formatMoney(Math.max(0,total-friendShare));
+}
+$('txResponsible').addEventListener('change', () => {
+  if ($('txResponsible').value==='Otros') $('txSplitType').value='100_FRIEND';
+  else if ($('txResponsible').value==='Compartido') $('txSplitType').value='50_50';
+  updateSplitPreview();
+});
+$('txSplitType').addEventListener('change', updateSplitPreview);
+$('txCustomAmount').addEventListener('input', updateSplitPreview);
+
+function updateInstPreview(){
+  const n = parseInt($('txInstallments').value||1);
+  const amount = parseFloat($('txAmount').value||0);
+  const sel = $('txCurrentInst');
+  if (n>1 && amount>0){
+    $('instPreview').style.display='flex';
+    $('previewMonthly').innerText = formatMoney(amount/n);
+    const prevVal = sel.value;
+    sel.innerHTML = Array.from({length:n},(_,i)=>i+1).map(i=>`<option value="${i}">${i}</option>`).join('');
+    sel.value = (prevVal && prevVal<=n) ? prevVal : '1';
+  } else {
+    $('instPreview').style.display='none';
+  }
+}
+$('txInstallments').addEventListener('change', updateInstPreview);
+$('txAmount').addEventListener('input', () => { updateInstPreview(); updateSplitPreview(); });
+
+$('txStatus').addEventListener('change', () => {
+  const show = $('txStatus').value === 'PARTIAL';
+  $('groupPartial').style.display = show ? 'block' : 'none';
+  if (show && !$('txPartialAmount').value){
+    const total = parseFloat($('txAmount').value||0);
+    $('txPartialAmount').value = Math.round(total/2);
+  }
+});
+
+$('btnSaveTx').addEventListener('click', () => {
+  const description = $('txDescription').value.trim();
+  const amount = parseFloat($('txAmount').value);
+  const date = $('txDate').value;
+  if (!description || !amount || amount<=0 || !date){
+    showToast('Completa descripción, monto y fecha', 'error'); return;
+  }
+
+  const editId = $('btnSaveTx').dataset.editId;
+  let txObj;
+
+  if (txModalType === 'PAYMENT'){
+    txObj = { id: editId || 'tx_'+Date.now(), type:'PAYMENT', description, amount, date,
+      notes:$('txNotes').value.trim(), status:'PAID', category:'Abono / Pago', responsible:'Yo',
+      friendName:'', installments:1, currentInstallment:1 };
+  } else {
+    const responsible = $('txResponsible').value;
+    const category = $('txCategory').value;
+    const installments = parseInt($('txInstallments').value||1);
+    const currentInstallment = installments>1 ? parseInt($('txCurrentInst').value||1) : 1;
+    const status = $('txStatus').value;
+    let friendName='', splitType='50_50', customFriendAmount=null;
+
+    if (responsible==='Otros' || responsible==='Compartido'){
+      friendName = $('txFriendName').value.trim();
+      if (!friendName){ showToast('Indica el nombre de la persona', 'error'); return; }
+      splitType = $('txSplitType').value;
+      if (splitType==='CUSTOM') customFriendAmount = parseFloat($('txCustomAmount').value||0);
+      else if (splitType==='100_FRIEND') customFriendAmount = amount;
+      else customFriendAmount = amount/2;
+    }
+
+    let partialPaidAmount = 0;
+    if (status==='PARTIAL') partialPaidAmount = parseFloat($('txPartialAmount').value)||0;
+    else if (status==='PAID') partialPaidAmount = amount;
+
+    txObj = { id: editId || 'tx_'+Date.now(), type:'EXPENSE', description, amount, date,
+      notes:$('txNotes').value.trim(), status, category, responsible, friendName,
+      installments, currentInstallment, partialPaidAmount, splitType, customFriendAmount,
+      friendPaidInstallments: editId ? (findTx(editId)?.friendPaidInstallments || 0) : 0,
+      friendCollected: editId ? (findTx(editId)?.friendCollected || false) : false };
+  }
+
+  if (editId){
+    const idx = appData.transactions.findIndex(t => t.id === editId);
+    if (idx>=0) appData.transactions[idx] = txObj;
+    showToast('Movimiento actualizado', 'info');
+  } else {
+    appData.transactions.unshift(txObj);
+    showToast(txModalType==='EXPENSE' ? 'Compra registrada' : 'Abono registrado', 'success');
+  }
+  saveData();
+  closeModal('modalTx');
+});
+
+function openEditTx(id){
+  const tx = findTx(id); if (!tx) return;
+  resetTxForm();
+  setTxType(tx.type);
+  $('txDescription').value = tx.description;
+  $('txAmount').value = tx.amount;
+  $('txDate').value = tx.date;
+  $('txNotes').value = tx.notes || '';
+  if (tx.type==='EXPENSE'){
+    $('txCategory').value = tx.category || 'Otros';
+    $('txResponsible').value = tx.responsible || 'Yo';
+    $('txFriendName').value = tx.friendName || '';
+    $('txSplitType').value = tx.splitType || '50_50';
+    if (tx.splitType==='CUSTOM') $('txCustomAmount').value = tx.customFriendAmount || '';
+    $('txInstallments').value = tx.installments || 1;
+    $('txStatus').value = tx.status || 'PENDING';
+    if (tx.status==='PARTIAL') $('txPartialAmount').value = tx.partialPaidAmount || 0;
+    updateSplitPreview();
+    updateInstPreview();
+    $('txCurrentInst').value = tx.currentInstallment || 1;
+    $('groupPartial').style.display = tx.status==='PARTIAL' ? 'block' : 'none';
+  }
+  $('btnSaveTx').dataset.editId = id;
+  openModal('modalTx');
+}
+
+$('btnRegisterExpense').addEventListener('click', () => { resetTxForm(); setTxType('EXPENSE'); openModal('modalTx'); });
+$('btnRegisterExpense2').addEventListener('click', () => { resetTxForm(); setTxType('EXPENSE'); openModal('modalTx'); });
+$('btnRegisterPayment').addEventListener('click', () => { resetTxForm(); setTxType('PAYMENT'); openModal('modalTx'); });
+
+/* ==========================================================================
+   CONFIGURACION
+   ========================================================================== */
+function populateCycleDaySelects(){
+  const c = $('setClosingDay'), d = $('setDueDay');
+  c.innerHTML=''; d.innerHTML='';
+  for (let i=1;i<=31;i++){ c.innerHTML+=`<option value="${i}">Día ${i}</option>`; d.innerHTML+=`<option value="${i}">Día ${i}</option>`; }
+}
+$('btnOpenSettings').addEventListener('click', () => {
+  const s = appData.settings;
+  $('setCardName').value = s.cardName; $('setLast4').value = s.last4; $('setHolderName').value = s.holderName;
+  $('setCreditLimit').value = s.creditLimit; $('setInitialBalance').value = s.initialBalance;
+  $('setClosingDay').value = s.closingDay; $('setDueDay').value = s.dueDay; $('setCurrency').value = s.currency;
+  openModal('modalSettings');
+});
+$('btnSaveSettings').addEventListener('click', () => {
+  appData.settings.cardName = $('setCardName').value.trim() || DEFAULTS.settings.cardName;
+  appData.settings.last4 = $('setLast4').value.trim() || '4532';
+  appData.settings.holderName = $('setHolderName').value.trim() || DEFAULTS.settings.holderName;
+  appData.settings.creditLimit = parseFloat($('setCreditLimit').value) || 1000000;
+  appData.settings.initialBalance = parseFloat($('setInitialBalance').value) || 0;
+  appData.settings.closingDay = parseInt($('setClosingDay').value);
+  appData.settings.dueDay = parseInt($('setDueDay').value);
+  appData.settings.currency = $('setCurrency').value;
+  saveData();
+  closeModal('modalSettings');
+  showToast('Configuración guardada', 'success');
+});
+
+/* ==========================================================================
+   RESPALDO: IMPORT / EXPORT
+   ========================================================================== */
+$('btnExportMenu').addEventListener('click', () => openModal('modalBackup'));
+$('btnExportJSON').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(appData, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `santander_respaldo_${getTodayLocalString()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  showToast('Respaldo JSON descargado', 'success');
+});
+$('btnExportCSV').addEventListener('click', () => {
+  if (!appData.transactions.length){ showToast('No hay transacciones para exportar', 'error'); return; }
+  const headers = ['ID','Tipo','Fecha','Descripción','Categoría','Responsable','Persona','Monto','Cuotas','Cuota Actual','Estado','Monto Abonado','Cuotas Pagadas Prestamo','Notas'];
+  const rows = appData.transactions.map(t => [
+    `"${t.id}"`, `"${t.type}"`, `"${t.date}"`, `"${(t.description||'').replace(/"/g,'""')}"`, `"${t.category||''}"`,
+    `"${t.responsible||''}"`, `"${t.friendName||''}"`, t.amount, t.installments||1, t.currentInstallment||1,
+    `"${t.status||'PENDING'}"`, t.partialPaidAmount||0, t.friendPaidInstallments||0, `"${(t.notes||'').replace(/"/g,'""')}"`
+  ]);
+  const csv = "\uFEFF" + [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `santander_tabla_${getTodayLocalString()}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  showToast('CSV exportado', 'success');
+});
+$('btnImportFile').addEventListener('click', () => $('importFileInput').click());
+$('importFileInput').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const content = ev.target.result;
+      if (file.name.endsWith('.json')){
+        const parsed = JSON.parse(content);
+        if (parsed && Array.isArray(parsed.transactions)){
+          appData = { ...appData, ...parsed, settings:{ ...appData.settings, ...(parsed.settings||{}) } };
+          saveData();
+          showToast('Respaldo JSON importado correctamente', 'success');
+        } else throw new Error('Formato JSON inválido');
+      } else if (file.name.endsWith('.csv')){
+        const lines = content.split('\n');
+        let count=0;
+        for (let i=1;i<lines.length;i++){
+          const row = lines[i].trim(); if (!row) continue;
+          const cols = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
+          if (cols && cols.length>=8){
+            const clean = cols.map(c => c.replace(/^"|"$/g,'').replace(/""/g,'"'));
+            appData.transactions.push({
+              id: clean[0] || 'tx_'+Date.now()+'_'+i, type: clean[1]||'EXPENSE', date: clean[2]||getTodayLocalString(),
+              description: clean[3]||'', category: clean[4]||'Otros', responsible: clean[5]||'Yo', friendName: clean[6]||'',
+              amount: parseFloat(clean[7])||0, installments: parseInt(clean[8])||1, currentInstallment: parseInt(clean[9])||1,
+              status: clean[10]||'PENDING', partialPaidAmount: parseFloat(clean[11])||0, friendPaidInstallments: parseInt(clean[12])||0,
+              notes: clean[13]||''
+            });
+            count++;
+          }
+        }
+        saveData();
+        showToast(`${count} filas importadas desde CSV`, 'success');
+      }
+      closeModal('modalBackup');
+    }catch(err){ console.error(err); showToast('Error al importar: ' + err.message, 'error'); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+
+/* ==========================================================================
+   FILTROS DE MOVIMIENTOS
+   ========================================================================== */
+$('filterCycle').addEventListener('change', renderTransactionsTable);
+$('filterType').addEventListener('change', renderTransactionsTable);
+$('filterResponsible').addEventListener('change', renderTransactionsTable);
+
+/* ==========================================================================
+   RENDER ALL / INIT
+   ========================================================================== */
+function renderAll(){
+  renderRuler();
+  renderDashboard();
+  populateCycleFilter();
+  renderTransactionsTable();
+  renderDebtorsView();
+  renderInstallmentsView();
+  if (currentView === 'analitica') renderCharts();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  syncIndicator = $('syncIndicator');
+  loadData();           // carga local primero (app abre rápido)
+  populateCycleDaySelects();
+  resetTxForm();
+  renderAll();
+  await pullFromSupabase();  // luego trae la versión más reciente de la nube
+  renderAll();
+});
+setInterval(renderRuler, 60000);
+</script>
+</body>
+</html>
