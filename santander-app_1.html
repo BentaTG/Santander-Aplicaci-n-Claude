@@ -355,13 +355,13 @@ a{color:inherit;}
 }
 
 .tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-m); background:var(--surface);}
-table{width:100%; border-collapse:collapse; font-size:13px; min-width:720px;}
+table{width:100%; border-collapse:collapse; font-size:13px; min-width:720px; table-layout:auto;}
 thead th{
   text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;
   color:var(--muted); font-weight:700; padding:12px 16px; border-bottom:1px solid var(--border);
-  background:var(--surface-alt);
+  background:var(--surface-alt); white-space:nowrap;
 }
-tbody td{padding:12px 16px; border-bottom:1px solid var(--border); vertical-align:middle;}
+tbody td{padding:12px 16px; border-bottom:1px solid var(--border); vertical-align:middle; white-space:nowrap;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:var(--surface-alt);}
 .row-actions{display:flex; gap:6px;}
