@@ -39,6 +39,8 @@
   --green-soft:#E3F3EA;
   --amber:#A6741A;
   --amber-soft:#F8EFDB;
+  --sky:#1D74A8;
+  --sky-soft:#E1EEF6;
   --radius-s:8px;
   --radius-m:12px;
   --radius-l:18px;
@@ -313,6 +315,7 @@ a{color:inherit;}
 .badge-outline{background:var(--surface-alt); color:var(--ink-soft);}
 .badge-navy{background:var(--navy-soft); color:var(--navy);}
 .badge-accent{background:var(--accent-soft); color:var(--accent-ink);}
+.badge-sky{background:var(--sky-soft); color:var(--sky);}
 .badge-click{cursor:pointer; user-select:none; transition:transform .1s ease, filter .12s ease;}
 .badge-click:hover{filter:brightness(0.95);}
 .badge-click:active{transform:scale(0.94);}
@@ -355,13 +358,35 @@ a{color:inherit;}
 }
 .tx-checkbox{width:16px; height:16px; accent-color:var(--accent); cursor:pointer;}
 .selection-bar{
-  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
   background:var(--ink); color:#fff; padding:12px 18px; border-radius:var(--radius-s);
   margin-bottom:12px; font-size:13px;
   position:sticky; top:0; z-index:5;
 }
+.selection-bar-left{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
 .selection-bar .selection-total{font-weight:700; font-size:14.5px;}
 .selection-bar .selection-total .num{font-family:var(--font-display);}
+.bulk-status-actions{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.bulk-label{font-size:11.5px; color:rgba(255,255,255,0.6); margin-right:2px;}
+.bulk-btn{
+  border:1px solid rgba(255,255,255,0.25); background:rgba(255,255,255,0.08); color:#fff;
+  padding:6px 11px; border-radius:20px; font-size:11.5px; font-weight:700;
+  transition:background .12s ease, transform .1s ease;
+}
+.bulk-btn:hover{background:rgba(255,255,255,0.18);}
+.bulk-btn:active{transform:scale(0.95);}
+.bulk-btn.bulk-pending:hover{background:var(--accent);}
+.bulk-btn.bulk-reserved:hover{background:var(--sky);}
+.bulk-btn.bulk-partial:hover{background:var(--amber);}
+.bulk-btn.bulk-paid:hover{background:var(--green);}
+.cycle-summary-bar{
+  display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+  background:var(--navy-soft); border:1px solid var(--navy); color:var(--navy);
+  padding:11px 16px; border-radius:var(--radius-s); margin-bottom:12px; font-size:12.5px; font-weight:600;
+}
+.cycle-summary-totals{display:flex; gap:18px; flex-wrap:wrap;}
+.cycle-summary-totals .num{font-weight:700; font-family:var(--font-display);}
+.cycle-summary-totals .strong{color:var(--ink); font-size:13.5px;}
 
 .tbl-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:var(--radius-m); background:var(--surface);}
 table{width:100%; border-collapse:collapse; font-size:13px; min-width:720px; table-layout:auto;}
@@ -701,9 +726,26 @@ tbody tr:hover{background:var(--surface-alt);}
           <button class="btn btn-sm" id="btnSelectPending" style="margin-left:auto;">Seleccionar pendientes</button>
           <button class="btn btn-sm btn-ghost" id="btnClearSelection" style="display:none;">Limpiar selección</button>
         </div>
+        <div class="cycle-summary-bar" id="cycleSummaryBar" style="display:none;">
+          <div id="cycleSummaryLabel">Ciclo</div>
+          <div class="cycle-summary-totals">
+            <span>Compras <b class="num" id="cycleSummaryExpense">$0</b></span>
+            <span>Abonos <b class="num" id="cycleSummaryPayments">$0</b></span>
+            <span class="strong">Total facturado <b class="num" id="cycleSummaryTotal">$0</b></span>
+          </div>
+        </div>
         <div class="selection-bar" id="selectionBar" style="display:none;">
-          <div><span id="selectionCount" class="num" style="font-weight:700;">0</span> seleccionados</div>
-          <div class="selection-total">Total: <span id="selectionTotal" class="num">$0</span></div>
+          <div class="selection-bar-left">
+            <span><span id="selectionCount" class="num" style="font-weight:700;">0</span> seleccionados</span>
+            <span class="selection-total">Total: <span id="selectionTotal" class="num">$0</span></span>
+          </div>
+          <div class="bulk-status-actions">
+            <span class="bulk-label">Fijar estado:</span>
+            <button class="bulk-btn bulk-pending" data-bulk-status="PENDING">Pendiente</button>
+            <button class="bulk-btn bulk-reserved" data-bulk-status="RESERVED">Reservado</button>
+            <button class="bulk-btn bulk-partial" data-bulk-status="PARTIAL">Parcial</button>
+            <button class="bulk-btn bulk-paid" data-bulk-status="PAID">Pagado</button>
+          </div>
         </div>
         <div class="tbl-wrap">
           <table>
@@ -884,15 +926,16 @@ tbody tr:hover{background:var(--surface-alt);}
         </div>
         <div class="preview-box" id="instPreview" style="display:none;">
           <div class="pv-row"><span>Valor por cuota mensual</span><b class="num" id="previewMonthly">$0</b></div>
-          <div class="pv-row"><span>Cuota en curso ya pagada hasta</span>
+          <div class="pv-row" id="rowCurrentInst"><span>Cuota en curso ya pagada hasta</span>
             <select id="txCurrentInst" style="width:90px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-strong);"></select>
           </div>
         </div>
 
-        <div class="field">
+        <div class="field" id="groupStatus">
           <label>Estado de pago (a la tarjeta)</label>
           <select id="txStatus">
             <option value="PENDING">⏳ Pendiente</option>
+            <option value="RESERVED">🔵 Reservado (aparté la plata, aún no se la pago al banco)</option>
             <option value="PARTIAL">🌗 Abono parcial</option>
             <option value="PAID">✅ Pagado / saldado</option>
           </select>
@@ -900,6 +943,9 @@ tbody tr:hover{background:var(--surface-alt);}
         <div class="field" id="groupPartial" style="display:none;">
           <label>Monto abonado hasta ahora ($)</label>
           <input type="number" id="txPartialAmount" min="0" step="1">
+        </div>
+        <div class="field-hint" id="noteExistingInstallments" style="display:none; margin:-6px 0 14px;">
+          Esta compra ya tiene cuotas registradas: el estado de pago de cada cuota se administra individualmente haciendo click en su badge dentro de la tabla de Movimientos.
         </div>
       </div>
 
@@ -1049,6 +1095,7 @@ async function pullFromSupabase(){
     if (rows && rows.length > 0 && rows[0].data){
       const remote = rows[0].data;
       appData = { ...DEFAULTS, ...remote, settings:{ ...DEFAULTS.settings, ...(remote.settings||{}) } };
+      migrateInstallmentStatuses();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
     }
     showSyncStatus('ok');
@@ -1112,6 +1159,7 @@ function loadData(){
       appData = { ...DEFAULTS, ...parsed, settings:{ ...DEFAULTS.settings, ...(parsed.settings||{}) } };
     }catch(e){ console.error('Error cargando datos', e); }
   }
+  migrateInstallmentStatuses();
 }
 function saveData(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
@@ -1155,6 +1203,53 @@ function getCycleLabel(cycleEnd){
 }
 
 /* ==========================================================================
+   ESTADO DE PAGO POR CUOTA
+   Cada cuota de una compra en cuotas tiene su PROPIO estado (Pendiente/Parcial/
+   Pagado), independiente de las demás. Esto evita que marcar una cuota como
+   pagada afecte a las cuotas futuras de la misma compra.
+   ========================================================================== */
+
+// Índice (0-based) de la cuota que se factura en el ciclo cuyo cierre es cycleEnd, o null si no aplica.
+function getInstallmentIndexForCycle(tx, cycleEnd){
+  const { cycleEnd: txCycleEnd } = getCycleDates(new Date(tx.date + 'T00:00:00'));
+  const monthDiff = (cycleEnd.getFullYear()-txCycleEnd.getFullYear())*12 + (cycleEnd.getMonth()-txCycleEnd.getMonth());
+  if (monthDiff >= 0 && monthDiff < (tx.installments || 1)) return monthDiff;
+  return null;
+}
+
+// Migra compras en cuotas antiguas (estado único para toda la compra) al nuevo esquema por cuota.
+// Se ejecuta una sola vez por transacción, la primera vez que se carga con el nuevo formato.
+function migrateInstallmentStatuses(){
+  let migrated = 0;
+  appData.transactions.forEach(tx => {
+    if (tx.type !== 'EXPENSE') return;
+    const n = tx.installments || 1;
+    if (n <= 1) return;
+    if (Array.isArray(tx.installmentStatuses) && tx.installmentStatuses.length === n) return;
+
+    const cur = Math.max(1, Math.min(n, tx.currentInstallment || 1));
+    const statuses = new Array(n).fill('PENDING');
+    const partials = new Array(n).fill(0);
+    // Cuotas anteriores a la actual: se asumen ya pagadas al banco (ya facturadas y superadas en el tiempo)
+    for (let i = 0; i < cur - 1; i++) statuses[i] = 'PAID';
+    // Cuota actual: hereda el estado que tenía la compra completa (aquí es donde vivía el bug)
+    if (tx.status === 'PAID') statuses[cur-1] = 'PAID';
+    else if (tx.status === 'PARTIAL'){ statuses[cur-1] = 'PARTIAL'; partials[cur-1] = tx.partialPaidAmount || 0; }
+    tx.installmentStatuses = statuses;
+    tx.installmentPartialAmounts = partials;
+    migrated++;
+  });
+  if (migrated > 0) console.info(`Migración de cuotas: ${migrated} compra(s) actualizadas al nuevo esquema por cuota.`);
+}
+
+function getInstallmentStatus(tx, idx){
+  return (tx.installmentStatuses && tx.installmentStatuses[idx]) || 'PENDING';
+}
+function getInstallmentPartial(tx, idx){
+  return (tx.installmentPartialAmounts && tx.installmentPartialAmounts[idx]) || 0;
+}
+
+/* ==========================================================================
    LOGICA FINANCIERA CENTRAL
    ========================================================================== */
 function getFriendShare(tx){
@@ -1178,53 +1273,50 @@ function calculateCycleSummary(refDate = new Date()){
     const inCycle = txDate >= cycleStart && txDate <= cycleEnd;
 
     if (tx.type === 'EXPENSE'){
-      let instAmount = tx.amount;
       const isInst = (tx.installments || 1) > 1;
-      let isExpenseInCycle = inCycle;
+      const instAmount = isInst ? tx.amount / tx.installments : tx.amount;
+      const instIdx = isInst ? getInstallmentIndexForCycle(tx, cycleEnd) : null;
+      const isExpenseInCycle = isInst ? (instIdx !== null) : inCycle;
 
+      // Deuda acumulada al banco: suma lo no pagado de CADA cuota, según su propio estado.
       if (isInst){
-        instAmount = tx.amount / tx.installments;
-        const { cycleEnd: txCycleEnd } = getCycleDates(txDate);
-        const monthDiff = (cycleEnd.getFullYear()-txCycleEnd.getFullYear())*12 + (cycleEnd.getMonth()-txCycleEnd.getMonth());
-        isExpenseInCycle = (monthDiff >= 0 && monthDiff < tx.installments);
-      }
-
-      if (tx.responsible === 'Otros' || tx.responsible === 'Compartido'){
-        if (isInst){
-          const pastPaidInst = Math.max(0, (tx.currentInstallment || 1) - 1);
-          totalDebtAccumulated += Math.max(0, tx.amount - instAmount * pastPaidInst);
-        } else {
-          totalDebtAccumulated += tx.amount;
+        for (let i = 0; i < tx.installments; i++){
+          const st = getInstallmentStatus(tx, i);
+          if (st === 'PAID') continue;
+          if (st === 'PARTIAL') totalDebtAccumulated += Math.max(0, instAmount - getInstallmentPartial(tx, i));
+          else totalDebtAccumulated += instAmount;
         }
-      } else if (tx.status !== 'PAID'){
-        if (isInst){
-          const pastPaidInst = Math.max(0, (tx.currentInstallment || 1) - 1);
-          const pastPaidAmount = instAmount * pastPaidInst;
-          const partial = (tx.status === 'PARTIAL' && tx.partialPaidAmount > 0) ? tx.partialPaidAmount : 0;
-          totalDebtAccumulated += Math.max(0, tx.amount - pastPaidAmount - partial);
-        } else if (tx.status === 'PARTIAL' && tx.partialPaidAmount > 0){
-          totalDebtAccumulated += (tx.amount - tx.partialPaidAmount);
-        } else {
-          totalDebtAccumulated += tx.amount;
-        }
+      } else {
+        const st = tx.status || 'PENDING';
+        if (st === 'PAID'){ /* nada pendiente */ }
+        else if (st === 'PARTIAL') totalDebtAccumulated += Math.max(0, tx.amount - (tx.partialPaidAmount || 0));
+        else totalDebtAccumulated += tx.amount;
       }
 
       if (isExpenseInCycle){
         totalExpense += instAmount;
         activeExpensesCount++;
         categoryTotals[tx.category || 'Otros'] = (categoryTotals[tx.category || 'Otros'] || 0) + instAmount;
-        if (tx.status === 'PAID'){ totalPaid += instAmount; }
-        else if (tx.status === 'PARTIAL' && tx.partialPaidAmount > 0){ totalPaid += Math.min(instAmount, tx.partialPaidAmount); }
+        const st = isInst ? getInstallmentStatus(tx, instIdx) : (tx.status || 'PENDING');
+        const partial = isInst ? getInstallmentPartial(tx, instIdx) : (tx.partialPaidAmount || 0);
+        if (st === 'PAID'){ totalPaid += instAmount; }
+        else if (st === 'PARTIAL' && partial > 0){ totalPaid += Math.min(instAmount, partial); }
       }
 
-      if ((tx.responsible === 'Otros' || tx.responsible === 'Compartido') && tx.status !== 'PAID'){
-        const share = getFriendShare(tx);
-        if (isInst){
-          const paidInst = tx.friendPaidInstallments || 0;
-          const instVal = share / tx.installments;
-          totalPrestamos += Math.max(0, share - instVal * paidInst);
-        } else {
-          totalPrestamos += tx.friendCollected ? 0 : share;
+      // Préstamos a terceros: independiente del estado de pago al banco (eje separado).
+      if (tx.responsible === 'Otros' || tx.responsible === 'Compartido'){
+        const fullyPaidToBank = isInst
+          ? (tx.installmentStatuses || []).every(s => s === 'PAID') && (tx.installmentStatuses||[]).length === tx.installments
+          : tx.status === 'PAID';
+        if (!fullyPaidToBank){
+          const share = getFriendShare(tx);
+          if (isInst){
+            const paidInst = tx.friendPaidInstallments || 0;
+            const instVal = share / tx.installments;
+            totalPrestamos += Math.max(0, share - instVal * paidInst);
+          } else {
+            totalPrestamos += tx.friendCollected ? 0 : share;
+          }
         }
       }
     } else if (tx.type === 'PAYMENT'){
@@ -1340,7 +1432,17 @@ function renderRuler(){
    RENDER: DASHBOARD
    ========================================================================== */
 function statusBadgeInfo(tx){
-  if (tx.type === 'PAYMENT' || tx.status === 'PAID') return { cls:'badge-green', label:'Pagado' };
+  if (tx.type === 'PAYMENT') return { cls:'badge-green', label:'Pagado' };
+  if ((tx.installments||1) > 1 && Array.isArray(tx.installmentStatuses)){
+    // Para compras en cuotas, el dashboard muestra el estado de la cuota vigente en el ciclo actual
+    // (o la última cuota si la compra ya terminó de facturarse).
+    const { cycleEnd } = getCycleDates(new Date());
+    let idx = getInstallmentIndexForCycle(tx, cycleEnd);
+    if (idx === null) idx = tx.installments - 1;
+    const st = getInstallmentStatus(tx, idx);
+    return statusBadgeInfoFromStatus(st, 'EXPENSE');
+  }
+  if (tx.status === 'PAID') return { cls:'badge-green', label:'Pagado' };
   if (tx.status === 'PARTIAL') return { cls:'badge-amber', label:'Parcial' };
   return { cls:'badge-accent', label:'Pendiente' };
 }
@@ -1411,10 +1513,8 @@ function populateCycleFilter(){
   const sel = $('filterCycle');
   const current = sel.value || 'ALL';
   const cycles = new Map();
-  appData.transactions.forEach(tx => {
-    const { cycleEnd } = getCycleDates(new Date(tx.date));
-    const key = cycleEnd.toISOString().slice(0,10);
-    if (!cycles.has(key)) cycles.set(key, cycleEnd);
+  getMovementRows().forEach(row => {
+    if (!cycles.has(row.cycleKey)) cycles.set(row.cycleKey, row.cycleEndDate);
   });
   const sorted = [...cycles.entries()].sort((a,b) => new Date(b[0]) - new Date(a[0]));
   sel.innerHTML = '<option value="ALL">Todos los ciclos</option>' +
@@ -1424,44 +1524,93 @@ function populateCycleFilter(){
 
 let selectedTxIds = new Set();
 
+// Genera una fila "virtual" por movimiento: las compras al contado y los abonos generan
+// una sola fila; las compras en cuotas generan UNA FILA POR CADA CUOTA, fechada en el
+// ciclo en que esa cuota se factura, con su propio monto y su propio estado de pago.
+function getMovementRows(){
+  const out = [];
+  appData.transactions.forEach(tx => {
+    if (tx.type === 'PAYMENT'){
+      const { cycleEnd } = getCycleDates(new Date(tx.date + 'T00:00:00'));
+      out.push({
+        virtualId: tx.id, txId: tx.id, sortDate: new Date(tx.date + 'T00:00:00'),
+        cycleKey: cycleEnd.toISOString().slice(0,10), cycleEndDate: cycleEnd,
+        type: 'PAYMENT', description: tx.description, category: tx.category, responsible: 'Yo',
+        friendName:'', installments:1, instNumber:null, amount: tx.amount,
+        status:'PAID', partial:0, isInstallmentRow:false
+      });
+      return;
+    }
+    const n = tx.installments || 1;
+    if (n <= 1){
+      const { cycleEnd } = getCycleDates(new Date(tx.date + 'T00:00:00'));
+      out.push({
+        virtualId: tx.id, txId: tx.id, sortDate: new Date(tx.date + 'T00:00:00'),
+        cycleKey: cycleEnd.toISOString().slice(0,10), cycleEndDate: cycleEnd,
+        type:'EXPENSE', description: tx.description, category: tx.category, responsible: tx.responsible || 'Yo',
+        friendName: tx.friendName || '', installments:1, instNumber:null, amount: tx.amount,
+        status: tx.status || 'PENDING', partial: tx.partialPaidAmount || 0, isInstallmentRow:false
+      });
+      return;
+    }
+    // Compra en cuotas: una fila por cada cuota, fechada en su propio ciclo de facturación.
+    const { cycleEnd: purchaseCycleEnd } = getCycleDates(new Date(tx.date + 'T00:00:00'));
+    const instAmount = tx.amount / n;
+    for (let i = 0; i < n; i++){
+      const cEnd = new Date(purchaseCycleEnd);
+      cEnd.setMonth(cEnd.getMonth() + i);
+      out.push({
+        virtualId: `${tx.id}::${i}`, txId: tx.id, sortDate: cEnd,
+        cycleKey: cEnd.toISOString().slice(0,10), cycleEndDate: cEnd,
+        type:'EXPENSE', description: tx.description, category: tx.category, responsible: tx.responsible || 'Yo',
+        friendName: tx.friendName || '', installments: n, instNumber: i+1, amount: instAmount,
+        status: getInstallmentStatus(tx, i), partial: getInstallmentPartial(tx, i), isInstallmentRow:true
+      });
+    }
+  });
+  return out;
+}
+
 function renderTransactionsTable(){
   const cycleF = $('filterCycle').value;
   const typeF = $('filterType').value;
   const respF = $('filterResponsible').value;
 
-  // limpiar selección de ids que ya no existen (eliminados)
-  const allIds = new Set(appData.transactions.map(t => t.id));
-  selectedTxIds.forEach(id => { if (!allIds.has(id)) selectedTxIds.delete(id); });
+  const allRows = getMovementRows();
 
-  let rows = [...appData.transactions];
-  if (cycleF !== 'ALL') rows = rows.filter(tx => getCycleDates(new Date(tx.date)).cycleEnd.toISOString().slice(0,10) === cycleF);
-  if (typeF !== 'ALL') rows = rows.filter(tx => tx.type === typeF);
-  if (respF !== 'ALL') rows = rows.filter(tx => (tx.responsible || 'Yo') === respF);
-  rows.sort((a,b) => new Date(b.date) - new Date(a.date));
+  // limpiar selección de ids que ya no existen (eliminados)
+  const allVirtualIds = new Set(allRows.map(r => r.virtualId));
+  selectedTxIds.forEach(id => { if (!allVirtualIds.has(id)) selectedTxIds.delete(id); });
+
+  let rows = allRows;
+  if (cycleF !== 'ALL') rows = rows.filter(r => r.cycleKey === cycleF);
+  if (typeF !== 'ALL') rows = rows.filter(r => r.type === typeF);
+  if (respF !== 'ALL') rows = rows.filter(r => (r.responsible || 'Yo') === respF);
+  rows.sort((a,b) => b.sortDate - a.sortDate);
 
   const body = $('txTableBody');
   $('txEmptyState').style.display = rows.length ? 'none' : 'block';
   $('txTableBody').closest('.tbl-wrap').style.display = rows.length ? 'block' : 'none';
 
-  body.innerHTML = rows.map(tx => {
-    const sb = statusBadgeInfo(tx);
-    const clickable = tx.type === 'EXPENSE';
-    const statusBadge = `<span class="badge ${sb.cls}${clickable?' badge-click':''}" ${clickable?`onclick="cycleTxStatus('${tx.id}')" title="Click para cambiar estado"`:''}>${sb.label}</span>`;
-    const respLabel = tx.type === 'PAYMENT' ? '—' : (tx.responsible === 'Otros' ? '👥 ' + escapeHTML(tx.friendName||'') : tx.responsible === 'Compartido' ? '🤝 ' + escapeHTML(tx.friendName||'') : '👤 Yo');
-    const checked = selectedTxIds.has(tx.id) ? 'checked' : '';
+  body.innerHTML = rows.map(row => {
+    const sb = statusBadgeInfoFromStatus(row.status, row.type);
+    const clickable = row.type === 'EXPENSE';
+    const statusBadge = `<span class="badge ${sb.cls}${clickable?' badge-click':''}" ${clickable?`onclick="cycleTxStatus('${row.virtualId}')" title="Click para cambiar estado"`:''}>${sb.label}</span>`;
+    const respLabel = row.type === 'PAYMENT' ? '—' : (row.responsible === 'Otros' ? '👥 ' + escapeHTML(row.friendName||'') : row.responsible === 'Compartido' ? '🤝 ' + escapeHTML(row.friendName||'') : '👤 Yo');
+    const checked = selectedTxIds.has(row.virtualId) ? 'checked' : '';
     return `<tr>
-      <td><input type="checkbox" class="tx-checkbox row-checkbox" data-id="${tx.id}" ${checked}></td>
-      <td>${fmtDate(tx.date)}</td>
-      <td>${escapeHTML(tx.description)}</td>
-      <td>${CATEGORY_ICONS[tx.category]||'📦'} ${escapeHTML(tx.category||'')}</td>
+      <td><input type="checkbox" class="tx-checkbox row-checkbox" data-id="${row.virtualId}" ${checked}></td>
+      <td>${fmtDate(row.sortDate.toISOString().slice(0,10))}</td>
+      <td>${escapeHTML(row.description)}</td>
+      <td>${CATEGORY_ICONS[row.category]||'📦'} ${escapeHTML(row.category||'')}</td>
       <td>${respLabel}</td>
-      <td>${tx.installments>1 ? (tx.currentInstallment||1)+'/'+tx.installments : '—'}</td>
+      <td>${row.instNumber ? row.instNumber+'/'+row.installments : '—'}</td>
       <td>${statusBadge}</td>
-      <td style="text-align:right;" class="num">${tx.type==='PAYMENT' ? '+' : ''}${formatMoney(tx.amount)}</td>
+      <td style="text-align:right;" class="num">${row.type==='PAYMENT' ? '+' : ''}${formatMoney(row.amount)}</td>
       <td>
         <div class="row-actions">
-          <button class="icon-btn" title="Editar" onclick="openEditTx('${tx.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
-          <button class="icon-btn" title="Eliminar" onclick="deleteTx('${tx.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
+          <button class="icon-btn" title="Editar" onclick="openEditTx('${row.txId}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+          <button class="icon-btn" title="Eliminar" onclick="deleteTx('${row.txId}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></svg></button>
         </div>
       </td>
     </tr>`;
@@ -1474,7 +1623,7 @@ function renderTransactionsTable(){
     });
   });
 
-  const visibleIds = rows.map(tx => tx.id);
+  const visibleIds = rows.map(r => r.virtualId);
   const selectAllCb = $('selectAllCheckbox');
   selectAllCb.checked = visibleIds.length > 0 && visibleIds.every(id => selectedTxIds.has(id));
   selectAllCb.onchange = () => {
@@ -1484,10 +1633,24 @@ function renderTransactionsTable(){
   };
 
   updateSelectionBar();
+  updateCycleSummaryBar(cycleF, rows);
+}
+
+function updateCycleSummaryBar(cycleF, rows){
+  const bar = $('cycleSummaryBar');
+  if (cycleF === 'ALL'){ bar.style.display = 'none'; return; }
+  let expense = 0, payments = 0;
+  rows.forEach(r => { if (r.type === 'EXPENSE') expense += r.amount; else payments += r.amount; });
+  bar.style.display = 'flex';
+  $('cycleSummaryLabel').textContent = getCycleLabel(new Date(cycleF));
+  $('cycleSummaryExpense').textContent = formatMoney(expense);
+  $('cycleSummaryPayments').textContent = formatMoney(payments);
+  $('cycleSummaryTotal').textContent = formatMoney(expense);
 }
 
 function updateSelectionBar(){
-  const selected = appData.transactions.filter(tx => selectedTxIds.has(tx.id));
+  const allRows = getMovementRows();
+  const selected = allRows.filter(r => selectedTxIds.has(r.virtualId));
   const bar = $('selectionBar');
   const clearBtn = $('btnClearSelection');
   if (selected.length === 0){
@@ -1495,7 +1658,7 @@ function updateSelectionBar(){
     clearBtn.style.display = 'none';
     return;
   }
-  const total = selected.reduce((sum, tx) => sum + (tx.type === 'PAYMENT' ? -tx.amount : tx.amount), 0);
+  const total = selected.reduce((sum, r) => sum + (r.type === 'PAYMENT' ? -r.amount : r.amount), 0);
   bar.style.display = 'flex';
   clearBtn.style.display = 'inline-flex';
   $('selectionCount').textContent = selected.length;
@@ -1506,11 +1669,11 @@ $('btnSelectPending').addEventListener('click', () => {
   const cycleF = $('filterCycle').value;
   const typeF = $('filterType').value;
   const respF = $('filterResponsible').value;
-  let rows = appData.transactions.filter(tx => tx.type === 'EXPENSE' && (tx.status === 'PENDING' || tx.status === 'PARTIAL'));
-  if (cycleF !== 'ALL') rows = rows.filter(tx => getCycleDates(new Date(tx.date)).cycleEnd.toISOString().slice(0,10) === cycleF);
-  if (typeF !== 'ALL') rows = rows.filter(tx => tx.type === typeF);
-  if (respF !== 'ALL') rows = rows.filter(tx => (tx.responsible || 'Yo') === respF);
-  rows.forEach(tx => selectedTxIds.add(tx.id));
+  let rows = getMovementRows().filter(r => r.type === 'EXPENSE' && r.status !== 'PAID');
+  if (cycleF !== 'ALL') rows = rows.filter(r => r.cycleKey === cycleF);
+  if (typeF !== 'ALL') rows = rows.filter(r => r.type === typeF);
+  if (respF !== 'ALL') rows = rows.filter(r => (r.responsible || 'Yo') === respF);
+  rows.forEach(r => selectedTxIds.add(r.virtualId));
   renderTransactionsTable();
 });
 
@@ -1519,30 +1682,87 @@ $('btnClearSelection').addEventListener('click', () => {
   renderTransactionsTable();
 });
 
+// Fija directamente el estado elegido en TODAS las filas seleccionadas (sin depender de ir
+// ciclando con clicks uno por uno, que es fácil de errar cuando hay muchas filas).
+function setStatusDirectly(txId, instIdx, next){
+  const tx = findTx(txId); if (!tx || tx.type !== 'EXPENSE') return;
+  if (instIdx === null){
+    tx.status = next;
+    if (next === 'PARTIAL'){ if (!tx.partialPaidAmount) tx.partialPaidAmount = Math.round(tx.amount / 2); }
+    else if (next === 'PAID'){ tx.partialPaidAmount = tx.amount; }
+    else { tx.partialPaidAmount = 0; }
+  } else {
+    if (!Array.isArray(tx.installmentStatuses) || tx.installmentStatuses.length !== tx.installments) migrateInstallmentStatuses();
+    const instAmount = tx.amount / tx.installments;
+    tx.installmentStatuses[instIdx] = next;
+    if (!Array.isArray(tx.installmentPartialAmounts)) tx.installmentPartialAmounts = new Array(tx.installments).fill(0);
+    if (next === 'PARTIAL'){ if (!tx.installmentPartialAmounts[instIdx]) tx.installmentPartialAmounts[instIdx] = Math.round(instAmount / 2); }
+    else if (next === 'PAID'){ tx.installmentPartialAmounts[instIdx] = instAmount; }
+    else { tx.installmentPartialAmounts[instIdx] = 0; }
+  }
+}
+
+document.querySelectorAll('[data-bulk-status]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const next = btn.dataset.bulkStatus;
+    if (selectedTxIds.size === 0) return;
+    if (!confirm(`¿Fijar el estado "${STATUS_LABELS[next]}" en ${selectedTxIds.size} movimiento(s) seleccionado(s)?`)) return;
+    selectedTxIds.forEach(virtualId => {
+      const sepIdx = virtualId.indexOf('::');
+      if (sepIdx === -1) setStatusDirectly(virtualId, null, next);
+      else setStatusDirectly(virtualId.slice(0, sepIdx), parseInt(virtualId.slice(sepIdx + 2)), next);
+    });
+    saveData();
+    showToast(`Estado "${STATUS_LABELS[next]}" aplicado a ${selectedTxIds.size} movimiento(s)`, 'success');
+  });
+});
+
 function deleteTx(id){
-  if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return;
-  selectedTxIds.delete(id);
+  if (!confirm('¿Eliminar este movimiento? Si es una compra en cuotas, se eliminarán TODAS sus cuotas. Esta acción no se puede deshacer.')) return;
+  selectedTxIds.forEach(vid => { if (vid === id || vid.startsWith(id + '::')) selectedTxIds.delete(vid); });
   appData.transactions = appData.transactions.filter(t => t.id !== id);
   saveData();
   showToast('Movimiento eliminado', 'info');
 }
 
-function cycleTxStatus(id){
-  const tx = findTx(id); if (!tx || tx.type !== 'EXPENSE') return;
-  const order = ['PENDING','PARTIAL','PAID'];
-  const idx = order.indexOf(tx.status || 'PENDING');
-  const next = order[(idx + 1) % 3];
-  tx.status = next;
-  if (next === 'PARTIAL'){
-    if (!tx.partialPaidAmount) tx.partialPaidAmount = Math.round(tx.amount / 2);
-  } else if (next === 'PAID'){
-    tx.partialPaidAmount = tx.amount;
-  } else {
-    tx.partialPaidAmount = 0;
+function statusBadgeInfoFromStatus(status, type){
+  if (type === 'PAYMENT' || status === 'PAID') return { cls:'badge-green', label:'Pagado' };
+  if (status === 'PARTIAL') return { cls:'badge-amber', label:'Parcial' };
+  if (status === 'RESERVED') return { cls:'badge-sky', label:'Reservado' };
+  return { cls:'badge-accent', label:'Pendiente' };
+}
+
+const STATUS_LABELS = { PENDING:'Pendiente', RESERVED:'Reservado', PARTIAL:'Parcial', PAID:'Pagado' };
+
+function cycleTxStatus(virtualId){
+  const order = ['PENDING','RESERVED','PARTIAL','PAID'];
+  const sepIdx = virtualId.indexOf('::');
+  if (sepIdx === -1){
+    const tx = findTx(virtualId); if (!tx || tx.type !== 'EXPENSE') return;
+    const idx = order.indexOf(tx.status || 'PENDING');
+    const next = order[(idx + 1) % order.length];
+    tx.status = next;
+    if (next === 'PARTIAL'){ if (!tx.partialPaidAmount) tx.partialPaidAmount = Math.round(tx.amount / 2); }
+    else if (next === 'PAID'){ tx.partialPaidAmount = tx.amount; }
+    else { tx.partialPaidAmount = 0; }
+    saveData();
+    showToast('Estado actualizado a ' + STATUS_LABELS[next], 'success');
+    return;
   }
+  const txId = virtualId.slice(0, sepIdx);
+  const i = parseInt(virtualId.slice(sepIdx + 2));
+  const tx = findTx(txId); if (!tx || tx.type !== 'EXPENSE') return;
+  if (!Array.isArray(tx.installmentStatuses) || tx.installmentStatuses.length !== tx.installments) migrateInstallmentStatuses();
+  const instAmount = tx.amount / tx.installments;
+  const idx = order.indexOf(getInstallmentStatus(tx, i));
+  const next = order[(idx + 1) % order.length];
+  tx.installmentStatuses[i] = next;
+  if (!Array.isArray(tx.installmentPartialAmounts)) tx.installmentPartialAmounts = new Array(tx.installments).fill(0);
+  if (next === 'PARTIAL'){ if (!tx.installmentPartialAmounts[i]) tx.installmentPartialAmounts[i] = Math.round(instAmount / 2); }
+  else if (next === 'PAID'){ tx.installmentPartialAmounts[i] = instAmount; }
+  else { tx.installmentPartialAmounts[i] = 0; }
   saveData();
-  const label = next === 'PENDING' ? 'Pendiente' : next === 'PARTIAL' ? 'Parcial' : 'Pagado';
-  showToast('Estado actualizado a ' + label, 'success');
+  showToast(`Cuota ${i+1}/${tx.installments} actualizada a ${STATUS_LABELS[next]}`, 'success');
 }
 
 /* ==========================================================================
@@ -1732,14 +1952,21 @@ function renderInstallmentsView(){
     const bucket = cycleMap.get(key);
     const label = getCycleLabel(bucket.end);
     const isCurrent = bucket.end.toISOString().slice(0,10) === currentCycleEnd.toISOString().slice(0,10);
-    const items = bucket.items.map(({tx,n}) => `
+    const items = bucket.items.map(({tx,n}) => {
+      const st = getInstallmentStatus(tx, n-1);
+      const sb = statusBadgeInfoFromStatus(st, 'EXPENSE');
+      return `
       <div class="inst-item">
         <div class="inst-left">
           <span class="inst-badge">${n}/${tx.installments}</span>
           <div><div style="font-weight:600; font-size:13px;">${escapeHTML(tx.description)}</div><div class="di-meta">${tx.responsible !== 'Yo' ? (CATEGORY_ICONS[tx.category]||'') + ' Préstamo · ' + escapeHTML(tx.friendName||'') : (CATEGORY_ICONS[tx.category]||'') + ' ' + escapeHTML(tx.category||'')}</div></div>
         </div>
-        <div class="num" style="font-weight:500; color:var(--ink-soft);">${formatMoney(tx.amount / tx.installments)}</div>
-      </div>`).join('');
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="badge ${sb.cls} badge-click" onclick="cycleTxStatus('${tx.id}::${n-1}')" title="Click para cambiar estado">${sb.label}</span>
+          <div class="num" style="font-weight:500; color:var(--ink-soft); min-width:70px; text-align:right;">${formatMoney(tx.amount / tx.installments)}</div>
+        </div>
+      </div>`;
+    }).join('');
     return `<div class="cycle-block">
       <div class="cycle-block-head">
         <h3>${label} ${isCurrent ? '<span class="badge badge-navy" style="margin-left:8px;">Ciclo actual</span>' : ''}</h3>
@@ -1878,6 +2105,8 @@ function resetTxForm(){
   $('txInstallments').value='1'; $('txStatus').value='PENDING'; $('txPartialAmount').value='';
   $('groupFriend').style.display='none'; $('groupCustomSplit').style.display='none';
   $('instPreview').style.display='none'; $('groupPartial').style.display='none';
+  $('groupStatus').style.display='block'; $('noteExistingInstallments').style.display='none';
+  $('rowCurrentInst').style.display='flex';
   delete $('btnSaveTx').dataset.editId;
   setTxType('EXPENSE');
   updateFriendsDatalist();
@@ -1988,9 +2217,31 @@ $('btnSaveTx').addEventListener('click', () => {
     if (status==='PARTIAL') partialPaidAmount = parseFloat($('txPartialAmount').value)||0;
     else if (status==='PAID') partialPaidAmount = amount;
 
+    // Estado de pago por cuota: cada cuota tiene su propio estado independiente.
+    let installmentStatuses, installmentPartialAmounts;
+    if (installments > 1){
+      const oldTx = editId ? findTx(editId) : null;
+      if (oldTx && Array.isArray(oldTx.installmentStatuses)){
+        // Ya existía: se conserva el progreso cuota por cuota, solo se ajusta el largo si cambió el N° de cuotas.
+        installmentStatuses = oldTx.installmentStatuses.slice(0, installments);
+        installmentPartialAmounts = (oldTx.installmentPartialAmounts || []).slice(0, installments);
+        while (installmentStatuses.length < installments) installmentStatuses.push('PENDING');
+        while (installmentPartialAmounts.length < installments) installmentPartialAmounts.push(0);
+      } else {
+        // Compra nueva: la cuota actual toma el estado elegido, las anteriores se asumen ya pagadas al banco.
+        const cur = Math.max(1, Math.min(installments, currentInstallment));
+        installmentStatuses = new Array(installments).fill('PENDING');
+        installmentPartialAmounts = new Array(installments).fill(0);
+        for (let i = 0; i < cur - 1; i++) installmentStatuses[i] = 'PAID';
+        if (status === 'PAID') installmentStatuses[cur-1] = 'PAID';
+        else if (status === 'PARTIAL'){ installmentStatuses[cur-1] = 'PARTIAL'; installmentPartialAmounts[cur-1] = partialPaidAmount; }
+      }
+    }
+
     txObj = { id: editId || 'tx_'+Date.now(), type:'EXPENSE', description, amount, date,
       notes:$('txNotes').value.trim(), status, category, responsible, friendName,
       installments, currentInstallment, partialPaidAmount, splitType, customFriendAmount,
+      installmentStatuses, installmentPartialAmounts,
       friendPaidInstallments: editId ? (findTx(editId)?.friendPaidInstallments || 0) : 0,
       friendCollected: editId ? (findTx(editId)?.friendCollected || false) : false };
   }
@@ -2028,6 +2279,12 @@ function openEditTx(id){
     updateInstPreview();
     $('txCurrentInst').value = tx.currentInstallment || 1;
     $('groupPartial').style.display = tx.status==='PARTIAL' ? 'block' : 'none';
+
+    const hasInstallmentProgress = (tx.installments||1) > 1 && Array.isArray(tx.installmentStatuses);
+    $('groupStatus').style.display = hasInstallmentProgress ? 'none' : 'block';
+    $('groupPartial').style.display = (!hasInstallmentProgress && tx.status==='PARTIAL') ? 'block' : 'none';
+    $('noteExistingInstallments').style.display = hasInstallmentProgress ? 'block' : 'none';
+    $('rowCurrentInst').style.display = hasInstallmentProgress ? 'none' : 'flex';
   }
   $('btnSaveTx').dataset.editId = id;
   openModal('modalTx');
