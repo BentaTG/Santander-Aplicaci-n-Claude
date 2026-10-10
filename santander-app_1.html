@@ -142,7 +142,7 @@ a{color:inherit;}
 .topbar-title h1{font-size:19px; font-weight:600;}
 .topbar-title span{font-size:12.5px; color:var(--muted);}
 .topbar-actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-.sync-indicator{display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink-soft); margin-right:2px;}
+.sync-indicator{background:none; border:none; cursor:pointer; font-family:inherit; padding:6px 4px; display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--ink-soft); margin-right:2px;}
 .sync-dot{width:8px; height:8px; border-radius:50%; background:var(--border-strong); flex-shrink:0; transition:background .2s ease;}
 .sync-dot.syncing{background:var(--amber); animation:syncpulse 1s ease-in-out infinite;}
 .sync-dot.ok{background:var(--green);}
@@ -595,10 +595,10 @@ tbody tr:hover{background:var(--surface-alt);}
         <span id="topbarSub">Control personal de tarjeta y préstamos</span>
       </div>
       <div class="topbar-actions">
-        <span class="sync-indicator" title="Estado de sincronización">
+        <button class="sync-indicator" id="btnSyncStatus" title="Estado de sincronización (toca para ver el detalle)">
           <span id="syncDot" class="sync-dot"></span>
           <span id="syncText" class="hide-mobile"></span>
-        </span>
+        </button>
         <button class="btn" id="btnExportMenu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg>
           <span class="hide-mobile">Respaldo</span>
@@ -1029,6 +1029,28 @@ tbody tr:hover{background:var(--surface-alt);}
   </div>
 </div>
 
+<!-- ================= MODAL: SINCRONIZACION ================= -->
+<div class="modal-overlay" id="modalSync">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Sincronización</h3>
+      <button class="icon-btn" data-close="modalSync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="preview-box">
+        <div class="pv-row"><span>Estado</span><b id="syncInfoState">—</b></div>
+        <div class="pv-row"><span>Última sincronización correcta</span><b id="syncInfoLast">—</b></div>
+      </div>
+      <div id="syncInfoError" class="preview-box" style="display:none; color:var(--accent-ink); background:var(--accent-soft); border-color:var(--accent); word-break:break-word;"></div>
+      <p class="field-hint" id="syncInfoHelp"></p>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:14px;">
+        <button class="btn btn-block btn-primary" id="btnSyncNow">Sincronizar ahora</button>
+        <button class="btn btn-block" id="btnDownloadPrev" style="display:none;">Descargar copia previa a la última unión</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast-stack" id="toastStack"></div>
 
 <script>
@@ -1038,80 +1060,216 @@ tbody tr:hover{background:var(--surface-alt);}
 const STORAGE_KEY = 'santander_clean_app_v1';
 
 /* ==========================================================================
-   SUPABASE SYNC
+   SUPABASE SYNC (bidireccional: une los cambios del celular y del PC)
    ========================================================================== */
 const SB_URL  = 'https://ybvzacohusmnarmiexue.supabase.co';
 const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlidnphY29odXNtbmFybWlleHVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcxMTAyODcsImV4cCI6MjEwMjY4NjI4N30.ilrDbS9lnYo3f-U_ZxAqtVnsrVC5CqA6n5t7uG1QGTI';
 const SB_HEADERS = { 'Content-Type':'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
-const SB_TABLE = `${SB_URL}/rest/v1/app_data`;
+const SB_PATH = '/rest/v1/app_data';
+const USER_ID = 'bentatg';   // todos los dispositivos comparten este registro
 
-// user_id único por navegador/dispositivo — siempre el mismo usuario
-function getUserId(){
-  let id = localStorage.getItem('santander_user_id');
-  if (!id){ id = 'user_' + Math.random().toString(36).slice(2,10); localStorage.setItem('santander_user_id', id); }
-  return id;
-}
-// Forzamos un único registro: todos los dispositivos comparten 'bentatg'
-const USER_ID = 'bentatg';
+const LS_LOCAL_MOD  = 'santander_local_mod';   // última edición hecha en ESTE dispositivo
+const LS_LAST_SYNC  = 'santander_last_sync';   // referencia común con la nube
+const LS_LAST_OK    = 'santander_last_ok';     // última vez que la sync terminó bien
+const LS_FORCE_PUSH = 'santander_force_push';  // tras importar un respaldo: la nube se reemplaza
+const LS_BACKUP     = 'santander_backup_prev'; // copia automática antes de unir/reemplazar
 
-let syncTimeout = null;
-let syncDotEl = null;
-let syncTextEl = null;
+const syncState = { busy:false, rerun:false, status:'idle', error:'' };
+let syncTimeout = null, syncDotEl = null, syncTextEl = null;
+const lsNum = k => Number(localStorage.getItem(k)) || 0;
 
 function showSyncStatus(state){ // 'syncing' | 'ok' | 'error'
-  if (!syncDotEl) return;
-  const map = { syncing:'Sincronizando…', ok:'Sincronizado', error:'Sin conexión' };
-  syncDotEl.className = 'sync-dot ' + state;
-  syncTextEl.textContent = map[state] || '';
-  if (state === 'ok') setTimeout(() => { if (syncTextEl) syncTextEl.textContent = ''; }, 2500);
+  syncState.status = state;
+  if (syncDotEl){
+    const isNet = /No se pudo contactar/.test(syncState.error);
+    const map = { syncing:'Sincronizando…', ok:'Sincronizado', error: isNet ? 'Sin conexión' : 'Error de sincronización' };
+    syncDotEl.className = 'sync-dot ' + state;
+    syncTextEl.textContent = map[state] || '';
+    if (state === 'ok') setTimeout(() => { if (syncTextEl && syncState.status === 'ok') syncTextEl.textContent = ''; }, 2500);
+  }
+  if (typeof renderSyncInfo === 'function') renderSyncInfo();
 }
 
-async function pushToSupabase(){
-  showSyncStatus('syncing');
+async function sbFetch(path, opts = {}){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  let res;
   try{
-    const res = await fetch(`${SB_TABLE}?user_id=eq.${USER_ID}`, {
-      method:'PATCH',
-      headers:{ ...SB_HEADERS, 'Prefer':'return=minimal' },
-      body: JSON.stringify({ data: appData, updated_at: new Date().toISOString() })
-    });
-    if (res.status === 404 || res.status === 0 || (await res.text()) === '[]' || res.status === 200 && false){
-      // row no existe aún, hacer upsert
-    }
-    // Siempre intentamos upsert para cubrir primer uso
-    await fetch(SB_TABLE, {
-      method:'POST',
-      headers:{ ...SB_HEADERS, 'Prefer':'resolution=merge-duplicates' },
-      body: JSON.stringify({ user_id: USER_ID, data: appData, updated_at: new Date().toISOString() })
-    });
-    showSyncStatus('ok');
-  } catch(e){ showSyncStatus('error'); }
+    res = await fetch(SB_URL + path, { cache:'no-store', ...opts, headers:{ ...SB_HEADERS, ...(opts.headers||{}) }, signal: ctrl.signal });
+  }catch(e){
+    const why = e.name === 'AbortError' ? 'tiempo de espera agotado' : (e.message || 'red o CORS');
+    throw new Error('No se pudo contactar a Supabase (' + why + ')');
+  }finally{ clearTimeout(timer); }
+  if (!res.ok){
+    let detail = '';
+    try{ const j = await res.json(); detail = j.message || j.hint || j.error || ''; }catch(_){}
+    throw new Error('Supabase respondió ' + res.status + (detail ? ' – ' + detail : ''));
+  }
+  return res;
 }
 
-async function pullFromSupabase(){
+function parseServerTime(s){
+  if (!s) return 0;
+  if (!/[zZ]$|[+-]\d\d(:?\d\d)?$/.test(s)) s += 'Z';   // la columna es "timestamp" sin zona: viene en UTC
+  const t = Date.parse(s);
+  return isNaN(t) ? 0 : t;
+}
+function hasUserData(d){ return !!(d && Array.isArray(d.transactions) && d.transactions.length > 0); }
+function newestTxTime(d){
+  let m = 0;
+  ((d && d.transactions) || []).forEach(t => { const mm = String(t.id).match(/(\d{12,})/); if (mm) m = Math.max(m, Number(mm[1])); });
+  return m;
+}
+function normalizeData(d){
+  const base = JSON.parse(JSON.stringify(DEFAULTS));
+  const src = d || {};
+  return { ...base, ...src,
+    settings: { ...base.settings, ...(src.settings || {}) },
+    transactions: Array.isArray(src.transactions) ? src.transactions : [],
+    deletedIds: Array.isArray(src.deletedIds) ? src.deletedIds : [] };
+}
+function backupLocal(reason){
+  try{ if (hasUserData(appData)) localStorage.setItem(LS_BACKUP, JSON.stringify({ at: Date.now(), reason, data: appData })); }catch(_){}
+}
+
+async function fetchRemoteMeta(){
+  const res = await sbFetch(`${SB_PATH}?user_id=eq.${USER_ID}&select=updated_at`);
+  const rows = await res.json();
+  return (Array.isArray(rows) && rows.length) ? { time: parseServerTime(rows[0].updated_at) } : null;
+}
+async function fetchRemoteFull(){
+  const res = await sbFetch(`${SB_PATH}?user_id=eq.${USER_ID}&select=data,updated_at`);
+  const rows = await res.json();
+  return (Array.isArray(rows) && rows.length) ? { data: rows[0].data, time: parseServerTime(rows[0].updated_at) } : null;
+}
+async function pushNow(){
+  const t = Date.now();
+  await sbFetch(SB_PATH, {
+    method:'POST',
+    headers:{ 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ user_id: USER_ID, data: appData, updated_at: new Date(t).toISOString() })
+  });
+  localStorage.setItem(LS_LAST_SYNC, String(t));
+}
+
+// Une dos copias: todas las compras de ambos lados (menos las eliminadas). Si una compra existe en
+// los dos, gana la copia del lado más reciente.
+function mergeData(local, remote, preferLocal){
+  const l = normalizeData(local), r = normalizeData(remote);
+  const deleted = new Set([...l.deletedIds, ...r.deletedIds]);
+  const map = new Map();
+  const order = preferLocal ? [r, l] : [l, r];
+  order.forEach(d => d.transactions.forEach(t => { if (!deleted.has(t.id)) map.set(t.id, t); }));
+  const base = preferLocal ? l : r;
+  return { ...base, transactions: [...map.values()], deletedIds: [...deleted] };
+}
+
+function applyRemote(remote){
+  // normaliza y migra la copia entrante antes de compararla con la local
+  const prev = appData;
+  appData = normalizeData(remote.data);
+  migrateInstallmentStatuses();
+  const incoming = appData;
+  appData = prev;
+  if (JSON.stringify(incoming) !== JSON.stringify(appData)){
+    backupLocal('antes de bajar los datos de la nube');
+    appData = incoming;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+    renderAll();
+    showToast('Datos actualizados desde otro dispositivo', 'info');
+  }
+  localStorage.setItem(LS_LAST_SYNC, String(remote.time));
+  localStorage.setItem(LS_LOCAL_MOD, String(remote.time));
+}
+
+async function doSync(){
+  const L = lsNum(LS_LOCAL_MOD), S = lsNum(LS_LAST_SYNC);
+  if (localStorage.getItem(LS_FORCE_PUSH) === '1'){
+    await pushNow();
+    localStorage.removeItem(LS_FORCE_PUSH);
+    return;
+  }
+  const meta = await fetchRemoteMeta();
+  if (!meta){                                   // la nube está vacía
+    if (hasUserData(appData)) await pushNow();
+    return;
+  }
+  const R = meta.time;
+  if (S > 0 && R <= S){                         // la nube no cambió desde la última sync
+    if (L > S) await pushNow();                 // pero yo sí: subo mis cambios
+    return;
+  }
+  const remote = await fetchRemoteFull();       // la nube cambió (o es la primera vez)
+  if (!remote || !remote.data){ if (hasUserData(appData)) await pushNow(); return; }
+  const localHas = hasUserData(appData), remoteHas = hasUserData(remote.data);
+  const localChanged = L > S;
+  if (!localHas && remoteHas){ applyRemote(remote); return; }   // este dispositivo está vacío
+  if (localHas && !remoteHas){ await pushNow(); return; }       // la nube está vacía
+  if (!localChanged){ applyRemote(remote); return; }            // solo cambió la nube
+  // Cambiaron ambos lados: se unen
+  backupLocal('antes de unir con la nube');
+  appData = mergeData(appData, remote.data, L >= R);
+  migrateInstallmentStatuses();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  localStorage.setItem(LS_LOCAL_MOD, String(Date.now()));
+  renderAll();
+  await pushNow();
+  showToast('Se unieron los cambios del celular y del PC', 'success');
+}
+
+async function syncNow(){
+  if (syncState.busy){ syncState.rerun = true; return; }
+  syncState.busy = true;
   showSyncStatus('syncing');
   try{
-    const res = await fetch(`${SB_TABLE}?user_id=eq.${USER_ID}&select=data,updated_at`, { headers: SB_HEADERS });
-    const rows = await res.json();
-    if (rows && rows.length > 0 && rows[0].data){
-      const remote = rows[0].data;
-      appData = { ...DEFAULTS, ...remote, settings:{ ...DEFAULTS.settings, ...(remote.settings||{}) } };
-      migrateInstallmentStatuses();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-    }
+    await doSync();
+    syncState.error = '';
+    localStorage.setItem(LS_LAST_OK, String(Date.now()));
     showSyncStatus('ok');
-  } catch(e){ showSyncStatus('error'); }
+  }catch(e){
+    syncState.error = e.message || String(e);
+    console.error('Sync:', e);
+    showSyncStatus('error');
+  }finally{
+    syncState.busy = false;
+    if (syncState.rerun){ syncState.rerun = false; syncNow(); }
+  }
 }
 
 function schedulePush(){
   if (syncTimeout) clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(pushToSupabase, 800);
+  syncTimeout = setTimeout(syncNow, 800);
+}
+
+/* Ventana de detalle de sincronización */
+function renderSyncInfo(){
+  const box = document.getElementById('modalSync');
+  if (!box) return;
+  const names = { idle:'Sin sincronizar aún', syncing:'Sincronizando…', ok:'Sincronizado', error:'Con error' };
+  document.getElementById('syncInfoState').textContent = names[syncState.status] || '—';
+  const last = lsNum(LS_LAST_OK);
+  document.getElementById('syncInfoLast').textContent = last ? new Date(last).toLocaleString('es-CL') : 'Nunca en este dispositivo';
+  const errBox = document.getElementById('syncInfoError');
+  const help = document.getElementById('syncInfoHelp');
+  if (syncState.status === 'error' && syncState.error){
+    errBox.style.display = 'block';
+    errBox.textContent = syncState.error;
+    const e = syncState.error;
+    help.textContent =
+      /No se pudo contactar/.test(e) ? 'No hay conexión con Supabase. Si otras páginas cargan, lo más probable es que el proyecto esté pausado (plan gratuito): entra a supabase.com, abre tu proyecto y presiona "Restore project". Tus datos locales siguen guardados en este dispositivo.' :
+      /401|403/.test(e) ? 'Supabase rechazó la clave de acceso. Revisa que la clave "anon" del proyecto siga vigente (Project Settings → API).' :
+      /404|42P01|relation/.test(e) ? 'No se encuentra la tabla app_data. Hay que volver a ejecutar el SQL de creación en Supabase.' :
+      'Tus datos locales siguen guardados en este dispositivo y se subirán apenas vuelva la conexión.';
+  } else { errBox.style.display = 'none'; help.textContent = 'Los cambios se envían solos al guardar y cada minuto se revisa si hay novedades de tu otro dispositivo.'; }
+  document.getElementById('btnDownloadPrev').style.display = localStorage.getItem(LS_BACKUP) ? 'flex' : 'none';
 }
 const DEFAULTS = {
   settings:{
     cardName:'SANTANDER WORLDMEMBER', last4:'4532', holderName:'BENJAMÍN TRALMA GUTIÉRREZ',
     creditLimit:1000000, initialBalance:0, closingDay:25, dueDay:5, currency:'CLP'
   },
-  transactions:[]
+  transactions:[],
+  deletedIds:[]
 };
 let appData = JSON.parse(JSON.stringify(DEFAULTS));
 let chartInstances = {};
@@ -1154,15 +1312,18 @@ function fmtDate(dateStr, opts){
 function loadData(){
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved){
-    try{
-      const parsed = JSON.parse(saved);
-      appData = { ...DEFAULTS, ...parsed, settings:{ ...DEFAULTS.settings, ...(parsed.settings||{}) } };
-    }catch(e){ console.error('Error cargando datos', e); }
-  }
+    try{ appData = normalizeData(JSON.parse(saved)); }
+    catch(e){ console.error('Error cargando datos', e); }
+  } else { appData = normalizeData(null); }
   migrateInstallmentStatuses();
+  // Primera vez con esta versión: se estima cuándo fue la última edición local
+  if (localStorage.getItem(LS_LOCAL_MOD) === null && hasUserData(appData)){
+    localStorage.setItem(LS_LOCAL_MOD, String(newestTxTime(appData) || Date.now()));
+  }
 }
 function saveData(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+  localStorage.setItem(LS_LOCAL_MOD, String(Date.now()));
   schedulePush();
   renderAll();
 }
@@ -1442,9 +1603,7 @@ function statusBadgeInfo(tx){
     const st = getInstallmentStatus(tx, idx);
     return statusBadgeInfoFromStatus(st, 'EXPENSE');
   }
-  if (tx.status === 'PAID') return { cls:'badge-green', label:'Pagado' };
-  if (tx.status === 'PARTIAL') return { cls:'badge-amber', label:'Parcial' };
-  return { cls:'badge-accent', label:'Pendiente' };
+  return statusBadgeInfoFromStatus(tx.status || 'PENDING', 'EXPENSE');
 }
 
 function renderDashboard(){
@@ -1705,21 +1864,22 @@ function setStatusDirectly(txId, instIdx, next){
 document.querySelectorAll('[data-bulk-status]').forEach(btn => {
   btn.addEventListener('click', () => {
     const next = btn.dataset.bulkStatus;
-    if (selectedTxIds.size === 0) return;
-    if (!confirm(`¿Fijar el estado "${STATUS_LABELS[next]}" en ${selectedTxIds.size} movimiento(s) seleccionado(s)?`)) return;
+    if (selectedTxIds.size === 0){ showToast('Primero marca el checkbox de al menos un movimiento', 'error'); return; }
+    const count = selectedTxIds.size;
     selectedTxIds.forEach(virtualId => {
       const sepIdx = virtualId.indexOf('::');
       if (sepIdx === -1) setStatusDirectly(virtualId, null, next);
       else setStatusDirectly(virtualId.slice(0, sepIdx), parseInt(virtualId.slice(sepIdx + 2)), next);
     });
     saveData();
-    showToast(`Estado "${STATUS_LABELS[next]}" aplicado a ${selectedTxIds.size} movimiento(s)`, 'success');
+    showToast(`Estado "${STATUS_LABELS[next]}" aplicado a ${count} movimiento(s)`, 'success');
   });
 });
 
 function deleteTx(id){
   if (!confirm('¿Eliminar este movimiento? Si es una compra en cuotas, se eliminarán TODAS sus cuotas. Esta acción no se puede deshacer.')) return;
   selectedTxIds.forEach(vid => { if (vid === id || vid.startsWith(id + '::')) selectedTxIds.delete(vid); });
+  appData.deletedIds = [...(appData.deletedIds || []), id];
   appData.transactions = appData.transactions.filter(t => t.id !== id);
   saveData();
   showToast('Movimiento eliminado', 'info');
@@ -2235,6 +2395,7 @@ $('btnSaveTx').addEventListener('click', () => {
         for (let i = 0; i < cur - 1; i++) installmentStatuses[i] = 'PAID';
         if (status === 'PAID') installmentStatuses[cur-1] = 'PAID';
         else if (status === 'PARTIAL'){ installmentStatuses[cur-1] = 'PARTIAL'; installmentPartialAmounts[cur-1] = partialPaidAmount; }
+        else if (status === 'RESERVED'){ installmentStatuses[cur-1] = 'RESERVED'; }
       }
     }
 
@@ -2361,7 +2522,8 @@ $('importFileInput').addEventListener('change', e => {
       if (file.name.endsWith('.json')){
         const parsed = JSON.parse(content);
         if (parsed && Array.isArray(parsed.transactions)){
-          appData = { ...appData, ...parsed, settings:{ ...appData.settings, ...(parsed.settings||{}) } };
+          appData = normalizeData({ ...appData, ...parsed, settings:{ ...appData.settings, ...(parsed.settings||{}) } });
+          localStorage.setItem(LS_FORCE_PUSH, '1');
           saveData();
           showToast('Respaldo JSON importado correctamente', 'success');
         } else throw new Error('Formato JSON inválido');
@@ -2416,12 +2578,24 @@ function renderAll(){
 document.addEventListener('DOMContentLoaded', async () => {
   syncDotEl = $('syncDot');
   syncTextEl = $('syncText');
-  loadData();           // carga local primero (app abre rápido)
+  loadData();           // carga local primero (la app abre rápido)
   populateCycleDaySelects();
   resetTxForm();
   renderAll();
-  await pullFromSupabase();  // luego trae la versión más reciente de la nube
-  renderAll();
+  $('btnSyncStatus').addEventListener('click', () => { renderSyncInfo(); openModal('modalSync'); });
+  $('btnSyncNow').addEventListener('click', async () => { await syncNow(); renderSyncInfo(); });
+  $('btnDownloadPrev').addEventListener('click', () => {
+    const raw = localStorage.getItem(LS_BACKUP); if (!raw) return;
+    const b = JSON.parse(raw);
+    const blob = new Blob([JSON.stringify(b.data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `santander_copia_previa_${getTodayLocalString()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  await syncNow();                                           // al abrir
+  setInterval(() => { if (!document.hidden) syncNow(); }, 60000);      // cada minuto, con la app abierta
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+  window.addEventListener('online', syncNow);
 });
 setInterval(renderRuler, 60000);
 </script>
